@@ -34,7 +34,7 @@
 - Docker / Docker Compose（または uv）
 - Git
 - Windows環境 + Microsoft Word（PDF変換用）
-- Google DriveまたはGoogle Drive（環境間同期用）
+- Google Drive（環境間同期用）
 
 ### セットアップ
 
@@ -119,10 +119,12 @@ uv run python main/step02_docx/fill_forms.py
 
 | スクリプト | 説明 |
 |-----------|------|
-| `scripts/sync_gdrive.sh` | Google Drive双方向同期 (rclone) |
 | `scripts/archive_message.sh` | message.md をタイムスタンプ付きで jank/ に退避 |
 | `scripts/backup.sh` | Google Drive (rclone) へバックアップ |
 | `scripts/commit-push.sh` | message.md の内容でコミット&プッシュ |
+| `scripts/create_package.sh` | パッケージング・バリデーション |
+| `scripts/upload_to_gdrive.sh` | Google Driveへのアップロード |
+| `scripts/sync_gdrive.sh` | Google Drive双方向同期 (rclone)（未作成） |
 
 ## Development Workflow
 

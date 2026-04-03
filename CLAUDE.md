@@ -7,7 +7,7 @@
 
 **応募先**: 防衛装備庁 安全保障技術研究推進制度
 **研究テーマ**: (23) 医療・医工学に関する基礎研究（抗菌薬耐性関連）
-**応募タイプ**: Type A（年間最大5200万円、最大3年）想定
+**応募タイプ**: Type A（年間最大5200万円 ＝ 直接経費4,000万円+間接経費30%、最大3年）想定
 **提出期限**: 2026年5月20日(水) 正午（e-Rad経由）
 
 ## Quick Reference
@@ -57,38 +57,41 @@ med-resist-grant/
 │   │   ├── fill_excel.py        # Excel記入
 │   │   └── output/
 │   └── step04_package/          # パッケージング
-│       ├── package.sh
 │       └── output/
 ├── refs/                        # 参考資料 (gitignored)
 └── scripts/
-    ├── sync_gdrive.sh           # Google Drive双方向同期
-    └── windows/                 # Windows側スクリプト
-        ├── repair_and_pdf.bat
-        └── batch_convert.bat
+    ├── create_package.sh        # パッケージング・バリデーション
+    ├── sync_gdrive.sh           # Google Drive双方向同期 (未作成)
+    ├── upload_to_gdrive.sh      # Google Driveアップロード
+    └── windows/                 # Windows側スクリプト (未作成)
+        ├── repair_and_pdf.ps1
+        └── batch_convert.ps1
 ```
 
 ### 提出書類一覧
 
-| 書類 | 形式 | 生成方法 | 提出形式 |
-|------|------|----------|----------|
-| 様式1-1: 申請書概要 | docx | python-docx (テーブル記入) | PDF |
-| 様式1-2: 申請書詳細 | docx | Pandoc (Markdown→docx) | PDF |
-| 様式1-3: 追加説明事項 | docx | Pandoc (Markdown→docx) | PDF |
-| 様式2-1: 研究費見込額 | docx | python-docx (テーブル記入) | PDF |
-| 様式2-2: 研究費計画書 | docx | python-docx (テーブル記入) | PDF |
-| 様式3-1: 他制度(代表者) | docx | python-docx (テーブル記入) | PDF |
-| 様式3-2: 他制度(分担者) | docx | python-docx (テーブル記入) | PDF |
-| 様式4-1: 代表者調書 | docx | python-docx (テーブル記入) | PDF |
-| 様式4-2: 分担者調書 | docx | python-docx (テーブル記入) | PDF |
-| 様式5: 法人概要 | docx | python-docx (該当時のみ) | PDF |
-| 参考様式: 承諾書 | docx | python-docx | PDF |
-| 別紙5: セキュリティ質問票 | docx | python-docx | PDF |
-| 別添: 自己申告書 | docx | python-docx (人数分) | PDF |
-| 様式6: 申請概要 | xlsx | openpyxl | Excel |
-| 様式7: 研究者一覧 | xlsx | openpyxl | Excel |
-| 様式8: 連絡先 | xlsx | openpyxl | Excel |
+| 書類 | 形式 | 生成方法 | 提出形式 | 提出タイミング |
+|------|------|----------|----------|--------------|
+| 様式1-1: 申請書概要 | docx | python-docx (テーブル記入) | PDF | 応募時(5/20) |
+| 様式1-2: 申請書詳細 | docx | Pandoc (Markdown→docx) | PDF | 応募時(5/20) |
+| 様式1-3: 追加説明事項 | docx | Pandoc (Markdown→docx) | PDF | 応募時(5/20) |
+| 様式2-1: 研究費見込額 | docx | python-docx (テーブル記入) | PDF | 応募時(5/20) |
+| 様式2-2: 研究費計画書 | docx | python-docx (テーブル記入) | PDF | 応募時(5/20) |
+| 様式3-1: 他制度(代表者) | docx | python-docx (テーブル記入) | PDF | 応募時(5/20) |
+| 様式3-2: 他制度(分担者) | docx | python-docx (テーブル記入) | PDF | 応募時(5/20) |
+| 様式4-1: 代表者調書 | docx | python-docx (テーブル記入) | PDF | 応募時(5/20) |
+| 様式4-2: 分担者調書 | docx | python-docx (テーブル記入) | PDF | 応募時(5/20) |
+| 様式5: 法人概要 | docx | python-docx (該当時のみ) | PDF | 応募時(5/20) |
+| 参考様式: 承諾書 | docx | python-docx | PDF | 応募時(5/20) |
+※ 参考様式は3種類（委託・代表機関 / 委託・分担機関 / 補助金）。Type Aでは補助金版を削除。
+| 別紙5: セキュリティ質問票 | docx | python-docx | PDF | 面接選出後(7月中旬) |
+| 別添: 自己申告書 | docx | python-docx (人数分) | PDF | 面接選出後(7月中旬) |
+| 様式6: 申請概要 | xlsx | openpyxl | Excel | 応募時(5/20) |
+| 様式7: 研究者一覧 | xlsx | openpyxl | Excel | 応募時(5/20) |
+| 様式8: 連絡先 | xlsx | openpyxl | Excel | 応募時(5/20) |
 
-※ 様式1-1〜5 + 参考様式は **1つのPDF** に結合して提出
+※ 様式1-1〜5 + 参考様式は **1つのPDF** に結合して提出（未記入の様式は削除すること）
+※ チェックリストの提出は不要（提出前の自己確認用）
 
 ### Tech Stack
 
@@ -137,7 +140,7 @@ docker compose -f docker/docker-compose.yml down
 2. `main/step01_narrative/*.md` に本文を執筆
 3. `make build` で全ドキュメントを生成
 4. `scripts/sync_gdrive.sh` でGoogle Drive経由でWindows環境に同期
-5. Windows側で `repair_and_pdf.bat` でWord修復＋PDF化
+5. Windows側で `repair_and_pdf.ps1` でWord修復＋PDF化
 6. e-Radで提出
 
 ### Step-by-Step Pipeline

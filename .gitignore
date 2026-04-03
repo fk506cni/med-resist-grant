@@ -68,5 +68,8 @@ build/
 .env.local
 .env.*.local
 
+# --- ワークフロー一時ファイル ---
+message.md
+
 # --- 開発マーカー ---
 .development
