@@ -163,10 +163,14 @@ python-docxでの文書結合は書式崩壊リスクが高いため採用しな
 # docker/docker-compose.yml
 services:
   python:
-    build: ./python
+    build:
+      context: ./python
+      dockerfile: Dockerfile
     volumes:
-      - ../../:/workspace
+      - ..:/workspace
     working_dir: /workspace
+    environment:
+      - HOME=/tmp
 ```
 
 ### 4.2 パッケージ

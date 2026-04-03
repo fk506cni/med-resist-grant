@@ -1,0 +1,10 @@
+services:
+  python:
+    build:
+      context: ./python
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace
+    working_dir: /workspace
+    environment:
+      - HOME=/tmp

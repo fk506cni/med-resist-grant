@@ -86,9 +86,13 @@ docker/以下にPython用のDockerfileとdocker-compose.ymlを作成してくだ
 PythonスクリプトでWord/Excelテンプレートにデータを記入し、
 PandocでMarkdownからWord文書を生成します。
 
-## 参照
+## 参照資料
 - /home/dryad/anal/jami-abstract-pandoc/docker/pandoc/Dockerfile を読んで構成を参考にしてください
 - /home/dryad/anal/jami-abstract-pandoc/docker-compose.yml を読んでマウント構成を参考にしてください
+- docs/prompts.md（冒頭に全体的な文脈有り）
+- SPEC.md
+- README.md
+- CLAUDE.md
 
 ## 要件
 - ベースイメージ: python:3.12-slim
@@ -108,11 +112,11 @@ PandocでMarkdownからWord文書を生成します。
 
 #### 完了チェック
 
-- [ ] `docker compose -f docker/docker-compose.yml build` がエラーなく完了する
-- [ ] `docker compose -f docker/docker-compose.yml run --rm python python -c "import docx; import openpyxl; import yaml; print('OK')"` が成功
-- [ ] `docker compose -f docker/docker-compose.yml run --rm python pandoc --version` でPandocバージョンが表示される
-- [ ] コンテナ内から `/workspace/data/source/` のファイルが見える
-- [ ] 生成されたファイルのUID/GIDがホストユーザーと一致する
+- [x] `docker compose -f docker/docker-compose.yml build` がエラーなく完了する
+- [x] `docker compose -f docker/docker-compose.yml run --rm python python -c "import docx; import openpyxl; import yaml; print('OK')"` が成功
+- [x] `docker compose -f docker/docker-compose.yml run --rm python pandoc --version` でPandocバージョンが表示される
+- [x] コンテナ内から `/workspace/data/source/` のファイルが見える
+- [x] 生成されたファイルのUID/GIDがホストユーザーと一致する
 
 ---
 
