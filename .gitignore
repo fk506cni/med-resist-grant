@@ -1,0 +1,72 @@
+# ============================================
+# Agent Dev Template - .gitignore
+# ============================================
+
+# --- 参照資料・アーカイブ (内容はgit管理外) ---
+refs/*
+!refs/.gitkeep
+
+__archives/*
+!__archives/.gitkeep
+
+docs/__archives/*
+!docs/__archives/.gitkeep
+
+jank/*
+!jank/.gitkeep
+
+# --- データ ---
+data/source/*
+!data/source/.gitkeep
+
+# --- ステップ出力 ---
+main/*/output/*
+!main/*/output/.gitkeep
+
+# --- 生成物・一時ファイル ---
+*.html
+!README.html
+*.pyc
+*.pyo
+__pycache__/
+.ipynb_checkpoints/
+*.tmp
+*.bak
+*.swp
+*~
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- IDE ---
+.idea/
+.vscode/
+*.code-workspace
+
+# --- Python ---
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# --- R ---
+.Rhistory
+.RData
+.Rproj.user/
+
+# --- Docker ---
+*.log
+
+# --- パッケージ・アーカイブ ---
+*.zip
+*.tar.gz
+
+# --- 環境変数 ---
+.env
+.env.local
+.env.*.local
+
+# --- 開発マーカー ---
+.development
