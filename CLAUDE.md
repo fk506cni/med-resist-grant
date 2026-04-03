@@ -2,77 +2,143 @@
 
 ## Project Overview
 
-<!-- プロジェクト名と概要を記入 -->
-**プロジェクト名**: (プロジェクト名)
-**概要**: (1-2文でプロジェクトの目的を記述)
+**プロジェクト名**: med-resist-grant（薬剤耐性研究 科研費申請書類作成システム）
+**概要**: 令和8年度 安全保障技術研究推進制度（委託事業）の申請書類を、Markdownソース管理＋自動変換で作成するシステム。
+
+**応募先**: 防衛装備庁 安全保障技術研究推進制度
+**研究テーマ**: (23) 医療・医工学に関する基礎研究（抗菌薬耐性関連）
+**応募タイプ**: Type A（年間最大5200万円、最大3年）想定
+**提出期限**: 2026年5月20日(水) 正午（e-Rad経由）
 
 ## Quick Reference
 
 ### Project Structure
 
 ```
-project-name/
-├── CLAUDE.md                # AI アシスタント向けコンテキスト (本ファイル)
-├── SPEC.md                  # 技術仕様書
-├── README.md                # プロジェクト概要
-├── message.md               # コミットメッセージ / 作業メモ (一時ファイル)
-├── __archives/              # 古いファイルの退避先 (gitignored)
-├── data/                    # データ格納
-│   ├── source/              # 本番データ (gitignored)
-│   └── dummy/               # ダミーデータ (git管理)
-├── docker/                  # コンテナ設定
+med-resist-grant/
+├── CLAUDE.md                    # AI アシスタント向けコンテキスト（本ファイル）
+├── SPEC.md                      # 技術仕様書
+├── README.md                    # プロジェクト概要
+├── Makefile                     # ビルドシステム
+├── __archives/                  # 退避先 (gitignored)
+├── data/
+│   ├── source/                  # オリジナル様式ファイル (gitignored, 改変不可)
+│   │   ├── r08youshiki1_5.docx  # 様式1-1〜5 + 参考様式 + チェックリスト
+│   │   ├── r08youshiki_besshi5.docx  # 別紙5: 研究セキュリティ質問票
+│   │   ├── r08youshiki_betten.docx   # 別添: セキュリティ自己申告書
+│   │   ├── r08youshiki6.xlsx    # 様式6: 申請概要
+│   │   ├── r08youshiki7.xlsx    # 様式7: 研究者一覧
+│   │   ├── r08youshiki8.xlsx    # 様式8: 連絡先
+│   │   └── 募集要項.pdf          # 公募要領 (44p + 別紙)
+│   └── dummy/                   # ダミーデータ (git管理)
+├── docker/                      # Docker設定
 │   ├── docker-compose.yml
-│   ├── python/              # Python コンテナ
-│   └── r/                   # R コンテナ
-├── docs/                    # ドキュメント
-│   └── __archives/          # 古いドキュメント退避先 (gitignored)
-├── jank/                    # 一時ファイル置き場 (gitignored)
-├── main/                    # メイン処理パイプライン
-│   ├── 00_setup/            # 共通設定・関数
-│   ├── step01_xxx/          # ステップ01: (内容)
-│   │   └── output/          # ステップ出力 (gitignored)
-│   ├── step02_yyy/          # ステップ02: (内容)
+│   └── python/Dockerfile
+├── docs/
+│   ├── prompts.md               # 実装プロンプト集
+│   └── __archives/
+├── jank/                        # 一時ファイル (gitignored)
+├── main/
+│   ├── 00_setup/                # 共通設定・メタデータ (YAML)
+│   │   ├── config.yaml          # プロジェクト設定
+│   │   ├── researchers.yaml     # 研究者情報
+│   │   ├── other_funding.yaml   # 他制度応募状況
+│   │   └── security.yaml        # セキュリティ情報
+│   ├── step01_narrative/        # Markdown本文ソース
+│   │   ├── youshiki1_2.md       # 様式1-2: 研究計画詳細 (最大15p)
+│   │   ├── youshiki1_3.md       # 様式1-3: 追加説明事項
 │   │   └── output/
-│   └── step03_zzz/          # ステップ03: (内容)
+│   ├── step02_docx/             # Word文書生成
+│   │   ├── fill_forms.py        # テーブルフォーム記入
+│   │   ├── fill_security.py     # セキュリティ関連記入
+│   │   ├── build_narrative.sh   # Pandoc変換
+│   │   └── output/
+│   ├── step03_excel/            # Excel文書生成
+│   │   ├── fill_excel.py        # Excel記入
+│   │   └── output/
+│   └── step04_package/          # パッケージング
+│       ├── package.sh
 │       └── output/
-├── refs/                    # 参考資料 (gitignored)
-└── scripts/                 # ユーティリティスクリプト
-    ├── archive_message.sh   # message.md をjankに退避
-    ├── backup.sh            # Google Drive バックアップ
-    └── commit-push.sh       # message.md でコミット&プッシュ
+├── refs/                        # 参考資料 (gitignored)
+└── scripts/
+    ├── sync_gdrive.sh           # Google Drive双方向同期
+    └── windows/                 # Windows側スクリプト
+        ├── repair_and_pdf.bat
+        └── batch_convert.bat
 ```
+
+### 提出書類一覧
+
+| 書類 | 形式 | 生成方法 | 提出形式 |
+|------|------|----------|----------|
+| 様式1-1: 申請書概要 | docx | python-docx (テーブル記入) | PDF |
+| 様式1-2: 申請書詳細 | docx | Pandoc (Markdown→docx) | PDF |
+| 様式1-3: 追加説明事項 | docx | Pandoc (Markdown→docx) | PDF |
+| 様式2-1: 研究費見込額 | docx | python-docx (テーブル記入) | PDF |
+| 様式2-2: 研究費計画書 | docx | python-docx (テーブル記入) | PDF |
+| 様式3-1: 他制度(代表者) | docx | python-docx (テーブル記入) | PDF |
+| 様式3-2: 他制度(分担者) | docx | python-docx (テーブル記入) | PDF |
+| 様式4-1: 代表者調書 | docx | python-docx (テーブル記入) | PDF |
+| 様式4-2: 分担者調書 | docx | python-docx (テーブル記入) | PDF |
+| 様式5: 法人概要 | docx | python-docx (該当時のみ) | PDF |
+| 参考様式: 承諾書 | docx | python-docx | PDF |
+| 別紙5: セキュリティ質問票 | docx | python-docx | PDF |
+| 別添: 自己申告書 | docx | python-docx (人数分) | PDF |
+| 様式6: 申請概要 | xlsx | openpyxl | Excel |
+| 様式7: 研究者一覧 | xlsx | openpyxl | Excel |
+| 様式8: 連絡先 | xlsx | openpyxl | Excel |
+
+※ 様式1-1〜5 + 参考様式は **1つのPDF** に結合して提出
 
 ### Tech Stack
 
-<!-- 使用する技術スタックを記入 -->
-
 | 用途 | 技術 |
 |------|------|
-| 言語 | Python / R |
-| 実行環境 | Docker |
-| 可視化 | ggplot2 / matplotlib |
-| データ形式 | Parquet / CSV |
+| 本文執筆 | Markdown (Pandoc Markdown) |
+| メタデータ | YAML |
+| Word変換 | Pandoc 3.6.x + python-docx |
+| Excel記入 | openpyxl |
+| 実行環境 | Docker / uv |
+| Word修復・PDF化 | Windows + Word COM API |
+| データ同期 | Google Drive (rclone gdrive bisync) |
+| バージョン管理 | Git |
+
+### 参考プロジェクト
+
+- `/home/dryad/anal/jami-abstract-pandoc/` — JAMI学会抄録のMarkdown→Word変換システム
+  - Pandocワークフロー、Docker構成、Luaフィルタ、OOXML後処理等を参考
 
 ### Containers
-
-<!-- Docker コンテナ設定を記入 -->
-
-- Python Container:
-  - Port: `127.0.0.1:8888 -> 8888` (Jupyter Lab)
-  - SSH トンネル前提
-- R Container:
-  - Port: `127.0.0.1:8787 -> 8787` (RStudio)
-  - Login: rstudio / rstudio
 
 ```bash
 # コンテナ起動
 docker compose -f docker/docker-compose.yml up -d --build
+
+# スクリプト実行（コンテナ内）
+docker compose -f docker/docker-compose.yml run --rm -u $(id -u):$(id -g) python \
+  python main/step02_docx/fill_forms.py
 
 # コンテナ停止
 docker compose -f docker/docker-compose.yml down
 ```
 
 ## Development Guidelines
+
+### 重要な制約
+
+1. **data/source/ のファイルは絶対に変更しない** — 常にコピーして編集
+2. **ホストPythonを汚さない** — Docker or uv経由で実行
+3. **提出ファイルサイズ**: 各10MB以下、目標3MB
+4. **様式1-2は最大15ページ**
+
+### ワークフロー
+
+1. `main/00_setup/*.yaml` にメタデータを記入
+2. `main/step01_narrative/*.md` に本文を執筆
+3. `make build` で全ドキュメントを生成
+4. `scripts/sync_gdrive.sh` でGoogle Drive経由でWindows環境に同期
+5. Windows側で `repair_and_pdf.bat` でWord修復＋PDF化
+6. e-Radで提出
 
 ### Step-by-Step Pipeline
 
@@ -83,35 +149,22 @@ docker compose -f docker/docker-compose.yml down
 
 ### Naming Conventions
 
-- ステップフォルダ: `main/step01_xxx/`, `main/step02_yyy/`
-- 共通設定: `main/00_setup/`
-- R スクリプト: `*.R`, R Markdown: `*.Rmd`
-- Python スクリプト: `*.py`, Notebook: `*.ipynb`
+- メタデータ: `main/00_setup/*.yaml`
+- 本文Markdown: `main/step01_narrative/*.md`
+- Pythonスクリプト: `main/stepNN_*/fill_*.py`, `build_*.sh`
+- 出力: `main/stepNN_*/output/`
 
 ### Output Handling
 
 - 各ステップの出力は `main/stepNN_xxx/output/` に配置
-- 出力ディレクトリ構成例:
-  - `output/fig/{png,svg,pdf}/` - 図
-  - `output/table/` - テーブル
-  - `output/rds/` - R データ
 - すべての `output/` は `.gitignore` で除外済み
-
-### Environment Detection
-
-```bash
-# 開発環境マーカー作成 → ダミーデータ使用
-echo "Development environment" > .development
-
-# 削除 → 本番データ使用
-rm .development
-```
+- 最終成果物は `main/step04_package/output/` に集約
 
 ### Data Management
 
-- `data/source/` に本番データ (gitignored)
+- `data/source/` にオリジナル様式ファイル (gitignored)
 - `data/dummy/` にダミーデータ (git管理)
-- 開発時はダミーデータで動作確認
+- data/source/ のファイルは読み取り専用として扱い、コピーして加工する
 
 ## File Patterns to Ignore
 
@@ -119,5 +172,5 @@ rm .development
 - `__archives/` - 退避ファイル
 - `docs/__archives/` - 退避ドキュメント
 - `jank/` - 一時ファイル
-- `data/source/` - 本番データ
+- `data/source/` - オリジナル様式
 - `main/*/output/` - ステップ出力

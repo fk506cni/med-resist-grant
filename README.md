@@ -1,57 +1,86 @@
-# (プロジェクト名)
+# med-resist-grant
 
-<!-- プロジェクトの概要を1-2文で記述 -->
+令和8年度 安全保障技術研究推進制度（委託事業）の申請書類を、Markdownベースのソース管理と自動変換で作成するシステム。
 
-(プロジェクトの概要を記述してください)
+## 概要
+
+- **応募先**: 防衛装備庁 安全保障技術研究推進制度
+- **研究テーマ**: (23) 医療・医工学に関する基礎研究
+- **応募タイプ**: Type A（年間最大5200万円、最大3年）
+- **提出期限**: 2026年5月20日(水) 正午（e-Rad経由）
+
+### アーキテクチャ
+
+```
+[Markdown/YAML ソース]
+        │
+        ├── Pandoc ──────→ docx (様式1-2, 1-3: 研究計画本文)
+        ├── python-docx ──→ docx (様式1-1, 2-1~4-2等: テーブルフォーム)
+        └── openpyxl ────→ xlsx (様式6, 7, 8: Excelシート)
+                                    │
+                          [Google Drive同期]
+                                    │
+                          [Windows環境]
+                                    ├── Word修復
+                                    └── PDF変換
+                                    │
+                              [e-Rad提出]
+```
 
 ## Getting Started
 
 ### 前提条件
 
-- Docker / Docker Compose
+- Docker / Docker Compose（または uv）
 - Git
-- (その他必要なツール)
+- Windows環境 + Microsoft Word（PDF変換用）
+- Google DriveまたはGoogle Drive（環境間同期用）
 
 ### セットアップ
 
 ```bash
 # 1. リポジトリをクローン
 git clone <repository-url>
-cd <project-name>
+cd med-resist-grant
 
-# 2. 開発環境マーカーを作成
-echo "Development environment" > .development
-
-# 3. Docker コンテナをビルド・起動
+# 2. Docker コンテナをビルド・起動
 docker compose -f docker/docker-compose.yml up -d --build
 
-# 4. アクセス (SSH トンネル経由)
-# Jupyter Lab:  http://localhost:8888
-# RStudio:      http://localhost:8787 (rstudio/rstudio)
+# 3. オリジナル様式ファイルを data/source/ に配置
+# （r08youshiki1_5.docx, r08youshiki6.xlsx 等）
+
+# 4. メタデータを編集
+# main/00_setup/config.yaml, researchers.yaml 等
+
+# 5. 本文を執筆
+# main/step01_narrative/youshiki1_2.md, youshiki1_3.md
+
+# 6. ビルド
+make build
 ```
 
-### 本番データの配置
+### uv環境（Docker不使用時）
 
 ```bash
-# data/source/ に本番データを配置（またはシンボリックリンク）
-ln -s /path/to/real/data data/source/actual_data.parquet
+uv sync
+uv run python main/step02_docx/fill_forms.py
 ```
 
 ## Project Structure
 
 ```
 .
-├── main/                    # メイン処理パイプライン
-│   ├── 00_setup/            # 共通設定
-│   ├── step01_xxx/          # Step 01: (内容)
-│   ├── step02_yyy/          # Step 02: (内容)
-│   └── step03_zzz/          # Step 03: (内容)
-├── data/                    # データ
-│   ├── source/              # 本番データ (gitignored)
+├── main/
+│   ├── 00_setup/            # メタデータ (YAML)
+│   ├── step01_narrative/    # Markdown本文ソース
+│   ├── step02_docx/         # Word文書生成
+│   ├── step03_excel/        # Excel文書生成
+│   └── step04_package/      # パッケージング
+├── data/
+│   ├── source/              # オリジナル様式 (gitignored)
 │   └── dummy/               # ダミーデータ
-├── docker/                  # Docker 設定
+├── docker/                  # Docker設定
 ├── docs/                    # ドキュメント
-├── refs/                    # 参考資料 (gitignored)
 ├── scripts/                 # ユーティリティ
 ├── CLAUDE.md                # AI アシスタント向けコンテキスト
 ├── SPEC.md                  # 技術仕様書
@@ -62,27 +91,44 @@ ln -s /path/to/real/data data/source/actual_data.parquet
 
 | Step | フォルダ | 内容 | 入力 | 出力 |
 |------|---------|------|------|------|
-| 00 | `00_setup` | 共通設定・関数 | - | 共通関数 |
-| 01 | `step01_xxx` | (内容) | (入力) | (出力) |
-| 02 | `step02_yyy` | (内容) | Step 01 出力 | (出力) |
-| 03 | `step03_zzz` | (内容) | Step 02 出力 | (出力) |
+| 00 | `00_setup` | メタデータ定義 | - | YAML設定ファイル |
+| 01 | `step01_narrative` | 本文執筆 | - | Markdownファイル |
+| 02 | `step02_docx` | Word文書生成 | YAML + MD + 様式docx | 記入済みdocx |
+| 03 | `step03_excel` | Excel文書生成 | YAML + 様式xlsx | 記入済みxlsx |
+| 04 | `step04_package` | パッケージング | step02-03の出力 | 提出用ファイル一式 |
+
+## 提出書類
+
+### Word → PDF（Windows環境でPDF化）
+
+| 書類 | ファイル | 生成方法 |
+|------|---------|----------|
+| 様式1-1〜5 + 参考様式 | 1つのPDFに結合 | python-docx + Pandoc |
+| 別紙5 | 個別PDF | python-docx |
+| 別添 | 研究者ごとに個別PDF | python-docx |
+
+### Excel（そのまま提出）
+
+| 書類 | ファイル | 生成方法 |
+|------|---------|----------|
+| 様式6: 申請概要 | xlsx | openpyxl |
+| 様式7: 研究者一覧 | xlsx | openpyxl |
+| 様式8: 連絡先 | xlsx | openpyxl |
 
 ## Scripts
 
 | スクリプト | 説明 |
 |-----------|------|
+| `scripts/sync_gdrive.sh` | Google Drive双方向同期 (rclone) |
 | `scripts/archive_message.sh` | message.md をタイムスタンプ付きで jank/ に退避 |
 | `scripts/backup.sh` | Google Drive (rclone) へバックアップ |
 | `scripts/commit-push.sh` | message.md の内容でコミット&プッシュ |
 
 ## Development Workflow
 
-1. **ステップを追加**: `main/stepNN_name/` フォルダを作成
-2. **開発**: Docker コンテナ内で実行・デバッグ
-3. **出力確認**: `main/stepNN_name/output/` に結果が格納される
-4. **コミット**: `message.md` にコミットメッセージを書いて `scripts/commit-push.sh`
-5. **次のステップへ**: 前ステップの出力を入力として次のステップを開発
-
-## License
-
-<!-- ライセンスを記述 -->
+1. **メタデータ記入**: `main/00_setup/*.yaml` を編集
+2. **本文執筆**: `main/step01_narrative/*.md` をMarkdownで執筆
+3. **ビルド**: `make build` で全書類を生成
+4. **同期**: Google Drive経由でWindows環境に転送
+5. **PDF化**: Windows側でWord修復＋PDF変換
+6. **提出**: e-Radにアップロード
