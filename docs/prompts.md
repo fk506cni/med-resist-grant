@@ -851,9 +851,9 @@ pandoc INPUT.md \
 - [x] `bash main/step02_docx/build_narrative.sh` がエラーなく完了する
 - [x] main/step02_docx/output/youshiki1_2_narrative.docx が生成される
 - [x] main/step02_docx/output/youshiki1_3_narrative.docx が生成される
-- [ ] 生成されたdocxをWordで開いてセクション見出しと段落が正しく表示される
-- [ ] 日本語テキストが文字化けしていない
-- [ ] reference-docのスタイル（フォント等）が適用されている
+- [x] 生成されたdocxをWordで開いてセクション見出しと段落が正しく表示される
+- [x] 日本語テキストが文字化けしていない
+- [x] reference-docのスタイル（フォント等）が適用されている（fix_reference_styles.py で自動設定）
 
 ---
 
@@ -1123,8 +1123,8 @@ Docker実行時のコマンド例:
 
 #### 完了チェック
 
-- [ ] `./scripts/build.sh --help` がサブコマンド一覧を表示する
-- [ ] `./scripts/build.sh` が全ステップを実行する（Step 0-4の成果物が揃っている前提）
+- [x] `./scripts/build.sh --help` がサブコマンド一覧を表示する
+- [x] `./scripts/build.sh` が全ステップを実行する（Step 0-4の成果物が揃っている前提）
 - [ ] `./scripts/build.sh clean` が全output/を削除する
 - [ ] RUNNER=uv に切り替えても動作する
 
@@ -1269,10 +1269,10 @@ Windows側はGoogle Drive for Desktop でローカルフォルダに自動同期
 
 #### 完了チェック
 
-- [ ] `./scripts/sync_gdrive.sh -n` がドライランとして動作する（rclone未設定でもエラーメッセージが適切）
-- [ ] --help オプションで使い方が表示される
-- [ ] 除外パターンが.gitignoreと整合している
-- [ ] data/source/ は同期対象に含まれていない
+- [x] `./scripts/sync_gdrive.sh -n` がドライランとして動作する（rclone未設定でもエラーメッセージが適切）
+- [x] --help オプションで使い方が表示される
+- [x] 除外パターンが.gitignoreと整合している
+- [x] data/source/ は同期対象に含まれていない
 
 ---
 
@@ -1331,10 +1331,10 @@ VBScript（.vbs）またはPowerShell（.ps1）で実装します。
 
 #### 完了チェック（Windows側で確認）
 
-- [ ] PowerShell/VBSスクリプトの構文エラーがない
-- [ ] テストdocxに対してPDFが生成される
-- [ ] 修復済みdocxがWordで正常に開ける
-- [ ] バッチ変換でフォルダ内全ファイルが処理される
+- [x] PowerShell/VBSスクリプトの構文エラーがない
+- [x] テストdocxに対してPDFが生成される
+- [ ] 修復済みdocxがWordで正常に開ける（※ VBScript方式のため修復docxは保存しない）
+- [x] バッチ変換でフォルダ内全ファイルが処理される
 
 ---
 

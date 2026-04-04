@@ -18,6 +18,10 @@ jank/*
 # --- データ ---
 data/source/*
 !data/source/.gitkeep
+data/output/*
+!data/output/.gitkeep
+data/products/*
+!data/products/.gitkeep
 
 # --- ステップ出力 ---
 main/*/output/*

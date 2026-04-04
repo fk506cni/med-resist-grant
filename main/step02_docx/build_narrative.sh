@@ -64,23 +64,29 @@ run_pandoc() {
     fi
 }
 
-# --- reference.docx の確認 ---
+# --- Python実行関数 ---
+run_python() {
+    if [[ "$MODE" == "docker" ]]; then
+        docker compose -f docker/docker-compose.yml run --rm \
+            -u "$(id -u):$(id -g)" python \
+            python3 "$@"
+    else
+        python3 "$@"
+    fi
+}
+
+# --- reference.docx の確認・生成・スタイル設定 ---
 if [[ ! -f "$REFERENCE_DOC" ]]; then
-    echo "WARNING: $REFERENCE_DOC が見つかりません。デフォルトを生成します..."
+    echo "reference.docx を生成・スタイル設定します..."
     mkdir -p templates
     run_pandoc --print-default-data-file reference.docx > "$REFERENCE_DOC"
-    echo ""
-    echo "=== 重要 ==="
-    echo "$REFERENCE_DOC を生成しました。"
-    echo "Wordで開いて以下のスタイルを編集してください:"
-    echo "  - 本文（Body Text）: MS明朝 10.5pt"
-    echo "  - 見出し1（Heading 1）: MSゴシック 12pt 太字"
-    echo "  - 見出し2（Heading 2）: MSゴシック 10.5pt 太字"
-    echo "  - 表（Table）: MS明朝 9pt"
-    echo "※ data/source/r08youshiki1_5.docx の様式1-2部分を参照"
-    echo "============="
-    echo ""
+    echo "  デフォルト reference.docx を生成"
 fi
+
+# スタイル設定（毎回実行して最新の設定を反映）
+echo "reference.docx スタイル設定:"
+run_python main/step02_docx/fix_reference_styles.py "$REFERENCE_DOC"
+echo ""
 
 # --- 出力ディレクトリ作成 ---
 mkdir -p "$OUTPUT_DIR"

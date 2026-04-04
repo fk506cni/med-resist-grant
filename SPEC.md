@@ -73,9 +73,21 @@
                                               │
                                [main/step04_package/output/]
                                               │
-                                   [Google Drive同期]
-                                              │
-                                   [Windows: Word修復+PDF化]
+                          ┌─── [scripts/roundtrip.sh] ───┐
+                          │                               │
+                   [data/output/]                         │
+                          │                               │
+               [rclone copy → Google Drive]               │
+                          │                               │
+               [Windows: watch-and-convert.ps1]           │
+               [  (VBScript → Word COM → PDF) ]           │
+                          │                               │
+               [Google Drive products/]                   │
+                          │                               │
+               [rclone copy ← products/]                  │
+                          │                               │
+                   [data/products/*.pdf]                   │
+                          └───────────────────────────────┘
                                               │
                                         [e-Rad提出]
 ```
@@ -188,8 +200,8 @@ services:
 
 | 環境 | 用途 | 備考 |
 |------|------|------|
-| Windows + Word | docx修復・PDF変換 | COM API使用 |
-| Google Drive | ファイル同期 | rclone gdrive bisync |
+| Windows + Word | docx→PDF変換 | VBScript + Word COM (cscript.exe経由) |
+| Google Drive | ファイル同期 | rclone copy |
 | e-Rad | 申請提出 | Web UI |
 
 ---

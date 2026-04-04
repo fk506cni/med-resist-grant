@@ -30,7 +30,9 @@ med-resist-grant/
 │   │   ├── r08youshiki7.xlsx    # 様式7: 研究者一覧
 │   │   ├── r08youshiki8.xlsx    # 様式8: 連絡先
 │   │   └── 募集要項.pdf          # 公募要領 (44p + 別紙)
-│   └── dummy/                   # ダミーデータ (git管理)
+│   ├── dummy/                   # ダミーデータ (git管理)
+│   ├── output/                  # ビルド成果物集約先 (gitignored)
+│   └── products/                # Windows変換済みPDF (gitignored)
 ├── docker/                      # Docker設定
 │   ├── docker-compose.yml
 │   └── python/Dockerfile
@@ -62,12 +64,13 @@ med-resist-grant/
 ├── templates/                   # Pandoc reference-doc 等
 │   └── reference.docx           # Pandocスタイル定義 (デフォルト生成済み、スタイル要調整)
 └── scripts/
-    ├── build.sh                 # 全ドキュメント生成 (未作成)
+    ├── build.sh                 # 全ドキュメント生成
+    ├── roundtrip.sh             # ビルド→push→PDF待ち→pull 一括実行
     ├── create_package.sh        # パッケージング・バリデーション (未作成)
-    ├── sync_gdrive.sh           # Google Drive双方向同期 (未作成)
-    └── windows/                 # Windows側スクリプト (未作成)
-        ├── repair_and_pdf.ps1
-        └── batch_convert.ps1
+    ├── sync_gdrive.sh           # Google Drive同期 (rclone copy)
+    └── windows/                 # Windows側PDF変換スクリプト
+        ├── watch-and-convert.ps1   # フォルダ監視 docx→PDF 自動変換
+        └── watch-and-convert.bat   # PS1のランチャー
 ```
 
 ### 提出書類一覧
@@ -105,7 +108,7 @@ med-resist-grant/
 | Excel記入 | openpyxl |
 | 実行環境 | Docker / uv |
 | Word修復・PDF化 | Windows + Word COM API |
-| データ同期 | Google Drive (rclone gdrive bisync) |
+| データ同期 | Google Drive (rclone copy) |
 | バージョン管理 | Git |
 
 ### 参考プロジェクト
@@ -140,10 +143,11 @@ docker compose -f docker/docker-compose.yml down
 
 1. `main/00_setup/*.yaml` にメタデータを記入
 2. `main/step01_narrative/*.md` に本文を執筆
-3. `./scripts/build.sh` で全ドキュメントを生成
-4. `scripts/sync_gdrive.sh` でGoogle Drive経由でWindows環境に同期
-5. Windows側で `repair_and_pdf.ps1` でWord修復＋PDF化
-6. e-Radで提出
+3. `./scripts/roundtrip.sh` でビルド→push→PDF変換待ち→pull を一括実行
+   - ビルド成果物: `data/output/` (docx/xlsx)
+   - 変換済みPDF: `data/products/`
+4. Windows側では `watch-and-convert.ps1` が常駐してdocx→PDF自動変換
+5. e-Radで提出
 
 ### Step-by-Step Pipeline
 

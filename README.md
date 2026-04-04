@@ -78,7 +78,9 @@ uv run python main/step02_docx/fill_forms.py
 │   └── step04_package/      # パッケージング
 ├── data/
 │   ├── source/              # オリジナル様式 (gitignored)
-│   └── dummy/               # ダミーデータ
+│   ├── dummy/               # ダミーデータ
+│   ├── output/              # ビルド成果物集約先 (gitignored)
+│   └── products/            # Windows変換済みPDF (gitignored)
 ├── docker/                  # Docker設定
 ├── docs/                    # ドキュメント
 ├── scripts/                 # ユーティリティ
@@ -119,17 +121,21 @@ uv run python main/step02_docx/fill_forms.py
 
 | スクリプト | 説明 |
 |-----------|------|
-| `scripts/build.sh` | 全ドキュメント生成（未作成） |
+| `scripts/build.sh` | 全ドキュメント生成 (forms/narrative/security/excel) |
+| `scripts/roundtrip.sh` | ビルド→push→PDF待ち→pull 一括実行 |
+| `scripts/sync_gdrive.sh` | Google Drive同期 (rclone copy, push/pull) |
 | `scripts/create_package.sh` | パッケージング・バリデーション（未作成） |
 | `scripts/archive_message.sh` | message.md をタイムスタンプ付きで jank/ に退避 |
 | `scripts/commit-push.sh` | message.md の内容でコミット&プッシュ |
-| `scripts/sync_gdrive.sh` | Google Drive双方向同期 (rclone)（未作成） |
+| `scripts/windows/watch-and-convert.ps1` | Windows: フォルダ監視→docx→PDF自動変換 |
+| `scripts/windows/watch-and-convert.bat` | 上記PS1のランチャー |
 
 ## Development Workflow
 
 1. **メタデータ記入**: `main/00_setup/*.yaml` を編集
 2. **本文執筆**: `main/step01_narrative/*.md` をMarkdownで執筆
-3. **ビルド**: `./scripts/build.sh` で全書類を生成
-4. **同期**: Google Drive経由でWindows環境に転送
-5. **PDF化**: Windows側でWord修復＋PDF変換
-6. **提出**: e-Radにアップロード
+3. **ビルド→PDF取得**: `./scripts/roundtrip.sh` で一括実行
+   - ビルド成果物: `data/output/` (docx/xlsx)
+   - 変換済みPDF: `data/products/`
+4. Windows側では `watch-and-convert.ps1` が常駐してdocx→PDF自動変換
+5. **提出**: e-Radにアップロード
