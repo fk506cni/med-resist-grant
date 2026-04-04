@@ -59,6 +59,8 @@ med-resist-grant/
 │   └── step04_package/          # パッケージング
 │       └── output/
 ├── refs/                        # 参考資料 (gitignored)
+├── templates/                   # Pandoc reference-doc 等
+│   └── reference.docx           # Pandocスタイル定義 (未作成、Step 2で生成)
 └── scripts/
     ├── build.sh                 # 全ドキュメント生成 (未作成)
     ├── create_package.sh        # パッケージング・バリデーション (未作成)

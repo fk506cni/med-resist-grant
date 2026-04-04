@@ -23,6 +23,9 @@ RUN wget -q "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/p
     && rm /tmp/pandoc.deb
 
 # Install Python packages
+# Note: ruamel.yaml.clib (C extension) is not installed because python:3.12-slim
+# lacks a C compiler. Pure Python fallback is used instead, which is sufficient
+# for the small YAML files in this project (performance impact: negligible).
 RUN pip install --no-cache-dir \
     python-docx \
     openpyxl \

@@ -126,13 +126,13 @@
 | youshiki1_5_filled.docx | 様式1-1〜5 + 参考様式（テーブル記入済） | Windows で PDF化 |
 | youshiki1_2_narrative.docx | 様式1-2 本文（Pandoc生成） | Windows側で個別PDF化 → PDF結合 |
 | youshiki1_3_narrative.docx | 様式1-3 本文（Pandoc生成） | 同上 |
+| besshi5_filled.docx | 別紙5（テーブル記入済） | Windows で PDF化 |
+| betten_NN_romanized.docx | 別添（研究者ごと、例: betten_01_yamada.docx） | Windows で PDF化 |
 
 ※ 様式1-2, 1-3の統合方法: 各docxをWindows側で個別にPDF化した後、
 pypdf または Acrobat で様式1-5のPDFと結合して1つの提出用PDFを作成する。
 python-docxでの文書結合は書式崩壊リスクが高いため採用しない。
 ※ 未記入の様式（様式5等）は様式ごと削除し、提出PDFに含めないこと（別紙2 §4）。
-| besshi5_filled.docx | 別紙5（テーブル記入済） | Windows で PDF化 |
-| betten_[氏名].docx | 別添（研究者ごと） | Windows で PDF化 |
 
 ### 3.2 Excelファイル (step03_excel/output/)
 
@@ -151,7 +151,7 @@ python-docxでの文書結合は書式崩壊リスクが高いため採用しな
 | 様式7.xlsx | e-Rad | 10MB以下 | 応募時(5/20) |
 | 様式8.xlsx | e-Rad | 10MB以下 | 応募時(5/20) |
 | 別紙5.pdf | e-Rad | 10MB以下 | 面接選出後(7月中旬) |
-| 別添_[氏名].pdf × N人 | e-Rad | 10MB以下 | 面接選出後(7月中旬) |
+| 別添_NN_romanized.pdf × N人 | e-Rad | 10MB以下 | 面接選出後(7月中旬) |
 
 ---
 

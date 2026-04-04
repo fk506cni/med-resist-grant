@@ -167,20 +167,20 @@ budget:
     - institution: "○○大学"
       yearly:
         - year: 1
-          amount: 15000       # 直接経費合計（千円）
+          amount: 17500       # 直接経費合計（千円）— budget.details の institution 合算と一致させること
         - year: 2
-          amount: 18000
+          amount: 17500
         - year: 3
-          amount: 18000
+          amount: 17500
 
     - institution: "△△大学"
       yearly:
         - year: 1
-          amount: 5000
+          amount: 2500
         - year: 2
-          amount: 7000
+          amount: 7500
         - year: 3
-          amount: 7000
+          amount: 7500
 
   # ---------------------------------------------------------------------------
   # details: 品目レベル積算明細
