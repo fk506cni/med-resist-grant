@@ -1,0 +1,258 @@
+# =============================================================================
+# security.yaml — セキュリティ関連情報（別紙5・別添のデータソース）
+# =============================================================================
+# 対応様式:
+#   別紙5: 研究インテグリティに係る質問票（r08youshiki_besshi5.docx、24テーブル）
+#     - Table 0: 提案情報（PI氏名、所属、課題名）→ config.yaml/researchers.yaml から自動取得
+#     - Tables 1-2: §1 デューデリジェンス状況（チェックボックス）
+#     - Tables 3-15: §1 ①〜⑬ 研究者ごとの確認事項（13項目）
+#     - Table 16: §1 デューデリジェンス結果（チェックボックス）
+#     - Tables 17-18: §2 リスク軽減措置要否・新規追加時確認
+#     - Tables 19-20: §3 共同研究機関リスク確認
+#     - Tables 21-22: §4 リスク軽減措置
+#     - Table 23: §4 同意確認
+#   別添: セキュリティ自己申告書（r08youshiki_betten.docx、13テーブル）
+#     - Tables 0-12: ①〜⑬ 各研究者が自己申告する13項目
+#       （別紙5 §1の13項目と同一データを異なる視点で使用）
+# 参照先: fill_security.py (step02_docx)
+#
+# 設計方針:
+#   - 別紙5の13項目と別添の13項目は同じ情報源 → researchers セクションで共通化
+#   - 空リスト = 該当なし（fill_security.py 側で「該当なし」と記入）
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# due_diligence: デューデリジェンス実施状況
+# → 別紙5 Tables 1-2, 16
+#
+# 別紙5 §1(1): 各機関のデューデリジェンス実施状況
+#   - "提出済": デューデリジェンスに必要な情報を研究者から受領済
+#   - "要提出・未提出": まだ受領していない
+#   - "不要": デューデリジェンスが不要な機関
+#
+# 別紙5 §1 最終確認（Table 16）:
+#   - result: デューデリジェンス全体の結果
+# ---------------------------------------------------------------------------
+due_diligence:
+  lead_institution:
+    name: "○○大学"             # config.yaml lead_institution.name と一致
+    status: "提出済"             # "提出済" / "要提出・未提出" / "不要"
+
+  partner_institutions:
+    - name: "△△大学"           # config.yaml sub_institutions[].name と一致
+      status: "提出済"
+
+  # §1 デューデリジェンス実施結果（Table 16）
+  # 選択肢:
+  #   "実施した" — 全研究者の情報を確認し、デューデリジェンスを実施した
+  #   "実施していない" — まだ実施していない
+  #   "一部取得できなかった" — 一部の情報を取得できなかった
+  result: "実施した"
+
+# ---------------------------------------------------------------------------
+# researchers: 研究者ごとのセキュリティ情報（13項目）
+# → 別紙5 §1 Tables 3-15（①〜⑬）
+# → 別添 Tables 0-12（①〜⑬）
+#
+# 各研究者名は researchers.yaml の pi.name_ja / co_investigators[].name_ja と一致させること。
+# 13項目は別紙5と別添で以下のように対応:
+#   ① education_history     — 別紙5 Table 3  / 別添 Table 0  (2列: 年月, 内容)
+#   ② career_history        — 別紙5 Table 4  / 別添 Table 1  (2列: 年月, 内容)
+#   ③ funding_history       — 別紙5 Table 5  / 別添 Table 2  (5列: 取得日, 研究費名, 支給機関, 期間, 総額)
+#   ④ non_research_support  — 別紙5 Table 6  / 別添 Table 3  (5列: 年月, 内容, 支給機関, 期間, 総額)
+#   ⑤ publications          — 別紙5 Table 7  / 別添 Table 4  (5列: 発表日, 論文名, 筆頭著者, 責任著者, 共著者)
+#   ⑥ patents               — 別紙5 Table 8  / 別添 Table 5  (5列: 出願日, 内容, 出願者, 共同発明者, 共同出願人)
+#   ⑦ foreign_talent_programs — 別紙5 Table 9  / 別添 Table 6  (3列: 参加期間, プログラム名, 主催国・機関)
+#   ⑧ disciplinary_history  — 別紙5 Table 10 / 別添 Table 7  (2列: 年月, 処分内容)
+#   ⑨ list_status           — 別紙5 Table 11 / 別添 Table 8  (2列: 該当有無, 内容)
+#   ⑩ listed_entity_affiliation — 別紙5 Table 12 / 別添 Table 9  (2列: 期間, 内容)
+#   ⑪ listed_entity_relationships — 別紙5 Table 13 / 別添 Table 10 (3列: 年月, 内容, 機関・研究者名)
+#   ⑫ residency_status      — 別紙5 Table 14 / 別添 Table 11 (2列: 該当有無, 内容)
+#   ⑬ nationality           — 別紙5 Table 15 / 別添 Table 12 (2列: ラベル, 国籍)
+# ---------------------------------------------------------------------------
+researchers:
+  # === 研究代表者 ===
+  "○○ ○○":
+    # ① 学歴（高校以降の学歴、外国の教育機関を含む）
+    education_history:
+      - year_month: "20XX年3月"
+        description: "○○大学○○学部 卒業"
+      - year_month: "20XX年3月"
+        description: "○○大学大学院○○学研究科 博士課程修了"
+
+    # ② 研究経歴・職歴（特に海外勤務を含む）
+    career_history:
+      - year_month: "20XX年4月"
+        description: "○○大学大学院○○学研究科 助教"
+      - year_month: "20XX年4月"
+        description: "○○大学大学院○○学研究科 准教授"
+      - year_month: "20XX年4月"
+        description: "○○大学大学院○○学研究科 教授（現職）"
+
+    # ③ 研究費受給歴（R5年度以降）
+    # 5列: 取得日, 研究費名, 支給機関名, 期間, 総額(円)
+    funding_history:
+      - date: "R5年4月"
+        program_name: "科学研究費助成事業 基盤研究(B)"
+        agency: "日本学術振興会"
+        period: "R5〜R8"
+        total_amount: "15,000,000円"
+
+    # ④ 研究費以外の支援（給与、奨学金、研究設備利用等）
+    # 5列: 年月, 受けた支援の内容, 支給機関名, 期間, 総額(円)
+    non_research_support: []  # 該当なし
+
+    # ⑤ 発表論文（共著者を含む）
+    # 5列: 発表日, 論文名(雑誌名), 筆頭著者名, 責任著者名, 共著者名
+    publications:
+      - date: "20XX年XX月"
+        title: "○○に関する研究 (Journal of ○○)"
+        first_author: "Yamada T"
+        corresponding_author: "Yamada T"
+        co_authors: "Suzuki H, Tanaka K"
+
+    # ⑥ 特許（共同出願者を含む）
+    # 5列: 出願日, 特許内容, 出願者名, 共同発明者名, 共同出願人名
+    patents:
+      - date: "20XX年XX月"
+        description: "○○の検出方法"
+        applicant: "○○大学"
+        co_inventors: "○○ ○○"
+        co_applicants: ""
+
+    # ⑦ 外国の人材採用プログラムへの参加歴
+    #    「1286リスト」に掲載された機関のプログラムを含む
+    # 3列: 参加期間, プログラム名, 主催国/主催機関名
+    foreign_talent_programs: []  # 該当なし
+
+    # ⑧ 競争的研究費の公正な使用に関する指針に基づく処分歴
+    # 2列: 年月, 処分内容
+    disciplinary_history: []  # 該当なし
+
+    # ⑨ 経産省外国ユーザーリスト / 米国統合スクリーニングリスト掲載有無
+    # 2列: 該当有無, 該当有の場合の該当内容
+    list_status:
+      applicable: false
+      details: ""
+
+    # ⑩ リスト掲載機関への所属歴
+    # 2列: 期間, 所属内容
+    listed_entity_affiliation: []  # 該当なし
+
+    # ⑪ リスト掲載機関の研究者との関係
+    # 3列: 年月, 関係内容, リスト掲載機関及び研究者名
+    listed_entity_relationships: []  # 該当なし
+
+    # ⑫ 非居住者又は特別永住者以外の特定類型への該当性
+    # 2列: 該当有無, 該当内容
+    residency_status:
+      applicable: false
+      details: ""
+
+    # ⑬ 国籍
+    nationality: "日本"
+
+  # === 研究分担者 ===
+  "△△ △△":
+    education_history:
+      - year_month: "20XX年3月"
+        description: "△△大学○○学部 卒業"
+      - year_month: "20XX年3月"
+        description: "△△大学大学院○○学研究科 博士課程修了"
+
+    career_history:
+      - year_month: "20XX年4月"
+        description: "△△大学○○学部 助教"
+      - year_month: "20XX年4月"
+        description: "△△大学○○学部 准教授（現職）"
+
+    funding_history:
+      - date: "R6年4月"
+        program_name: "科学研究費助成事業 若手研究"
+        agency: "日本学術振興会"
+        period: "R6〜R9"
+        total_amount: "5,000,000円"
+
+    non_research_support: []
+
+    publications:
+      - date: "20XX年XX月"
+        title: "○○に関する研究 (Journal of ○○)"
+        first_author: "Suzuki H"
+        corresponding_author: "Suzuki H"
+        co_authors: "Yamada T, Tanaka K"
+
+    patents: []  # 該当なし
+
+    foreign_talent_programs: []
+
+    disciplinary_history: []
+
+    list_status:
+      applicable: false
+      details: ""
+
+    listed_entity_affiliation: []
+
+    listed_entity_relationships: []
+
+    residency_status:
+      applicable: false
+      details: ""
+
+    nationality: "日本"
+
+# ---------------------------------------------------------------------------
+# risk_assessment: リスク評価・軽減措置
+# → 別紙5 §2 Tables 17-18, §3 Tables 19-20, §4 Tables 21-22
+#
+# §2(2): 研究者にリスク軽減措置が必要か
+# §2(3): 研究期間中に新たな研究者を追加する場合の確認
+# §3: 共同研究機関に関するリスク確認
+# §4: 具体的なリスク軽減措置
+# ---------------------------------------------------------------------------
+risk_assessment:
+  # §2(2): リスク軽減措置の要否
+  mitigation_needed: false  # true の場合、measures を記入
+
+  # §2(3): 新規追加時の確認
+  new_member_confirmed: true  # 「記載内容に従います」にチェック
+
+  # §3: 共同研究機関に関するリスク
+  partner_institution_risk:
+    # §3(1): 共同研究機関にリスクのある機関が含まれているか
+    has_risk: false
+    # §3(2): 共同研究機関の研究者にリスクのある者が含まれているか
+    has_risk_researcher: false
+
+  # §4: リスク軽減措置（mitigation_needed: true の場合に記入）
+  # 選択肢（複数選択可）:
+  #   - facility_access: 施設へのアクセス管理
+  #   - research_location: 研究が行われる場所の管理
+  #   - meeting_participants: 会議等の参加者管理
+  #   - employment_contract: 雇用契約等での管理
+  #   - training: 研修等での管理
+  #   - data_access: データへのアクセス制御
+  #   - cybersecurity: サイバーセキュリティ対策
+  #   - other: その他
+  measures: []
+  # 例:
+  # measures:
+  #   - type: "facility_access"
+  #     description: "研究室への入退室管理システムの導入"
+  #   - type: "data_access"
+  #     description: "研究データへのアクセス権限の制限"
+
+  # §4(2): リスク軽減措置の実行確認
+  measures_confirmed: true  # 「実行可能であることを確認しました」にチェック
+
+# ---------------------------------------------------------------------------
+# consent: 同意確認
+# → 別紙5 Table 23
+# ---------------------------------------------------------------------------
+consent:
+  # 研究代表者・研究分担者・研究参画者全員の同意を得ているか
+  all_members_consented: true
+
+  # 研究代表者として本質問票の記載内容を確認したか
+  institutional_confirmation: true
