@@ -19,7 +19,7 @@ med-resist-grant/
 ├── CLAUDE.md                    # AI アシスタント向けコンテキスト（本ファイル）
 ├── SPEC.md                      # 技術仕様書
 ├── README.md                    # プロジェクト概要
-├── Makefile                     # ビルドシステム
+├── scripts/build.sh             # ビルドスクリプト
 ├── __archives/                  # 退避先 (gitignored)
 ├── data/
 │   ├── source/                  # オリジナル様式ファイル (gitignored, 改変不可)
@@ -60,9 +60,9 @@ med-resist-grant/
 │       └── output/
 ├── refs/                        # 参考資料 (gitignored)
 └── scripts/
-    ├── create_package.sh        # パッケージング・バリデーション
+    ├── build.sh                 # 全ドキュメント生成 (未作成)
+    ├── create_package.sh        # パッケージング・バリデーション (未作成)
     ├── sync_gdrive.sh           # Google Drive双方向同期 (未作成)
-    ├── upload_to_gdrive.sh      # Google Driveアップロード
     └── windows/                 # Windows側スクリプト (未作成)
         ├── repair_and_pdf.ps1
         └── batch_convert.ps1
@@ -138,7 +138,7 @@ docker compose -f docker/docker-compose.yml down
 
 1. `main/00_setup/*.yaml` にメタデータを記入
 2. `main/step01_narrative/*.md` に本文を執筆
-3. `make build` で全ドキュメントを生成
+3. `./scripts/build.sh` で全ドキュメントを生成
 4. `scripts/sync_gdrive.sh` でGoogle Drive経由でWindows環境に同期
 5. Windows側で `repair_and_pdf.ps1` でWord修復＋PDF化
 6. e-Radで提出

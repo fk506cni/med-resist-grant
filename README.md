@@ -56,7 +56,7 @@ docker compose -f docker/docker-compose.yml up -d --build
 # main/step01_narrative/youshiki1_2.md, youshiki1_3.md
 
 # 6. ビルド
-make build
+./scripts/build.sh
 ```
 
 ### uv環境（Docker不使用時）
@@ -119,18 +119,17 @@ uv run python main/step02_docx/fill_forms.py
 
 | スクリプト | 説明 |
 |-----------|------|
+| `scripts/build.sh` | 全ドキュメント生成（未作成） |
+| `scripts/create_package.sh` | パッケージング・バリデーション（未作成） |
 | `scripts/archive_message.sh` | message.md をタイムスタンプ付きで jank/ に退避 |
-| `scripts/backup.sh` | Google Drive (rclone) へバックアップ |
 | `scripts/commit-push.sh` | message.md の内容でコミット&プッシュ |
-| `scripts/create_package.sh` | パッケージング・バリデーション |
-| `scripts/upload_to_gdrive.sh` | Google Driveへのアップロード |
 | `scripts/sync_gdrive.sh` | Google Drive双方向同期 (rclone)（未作成） |
 
 ## Development Workflow
 
 1. **メタデータ記入**: `main/00_setup/*.yaml` を編集
 2. **本文執筆**: `main/step01_narrative/*.md` をMarkdownで執筆
-3. **ビルド**: `make build` で全書類を生成
+3. **ビルド**: `./scripts/build.sh` で全書類を生成
 4. **同期**: Google Drive経由でWindows環境に転送
 5. **PDF化**: Windows側でWord修復＋PDF変換
 6. **提出**: e-Radにアップロード
