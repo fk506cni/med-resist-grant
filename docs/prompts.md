@@ -919,11 +919,11 @@ for fname in ['r08youshiki_besshi5.docx', 'r08youshiki_betten.docx']:
 
 #### 完了チェック
 
-- [ ] data/source/ のオリジナルファイルが変更されていない
-- [ ] besshi5_filled.docx が生成され、Wordで開ける
-- [ ] betten_*.docx が研究者の人数分生成される
-- [ ] 「該当なし」の項目でエラーにならない
-- [ ] `python -m py_compile main/step02_docx/fill_security.py` がエラーなし
+- [x] data/source/ のオリジナルファイルが変更されていない
+- [x] besshi5_filled.docx が生成され、Wordで開ける
+- [x] betten_*.docx が研究者の人数分生成される
+- [x] 「該当なし」の項目でエラーにならない
+- [x] `python -m py_compile main/step02_docx/fill_security.py` がエラーなし
 
 ---
 
