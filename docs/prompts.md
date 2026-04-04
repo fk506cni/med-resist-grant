@@ -848,9 +848,9 @@ pandoc INPUT.md \
 
 #### 完了チェック
 
-- [ ] `bash main/step02_docx/build_narrative.sh` がエラーなく完了する
-- [ ] main/step02_docx/output/youshiki1_2_narrative.docx が生成される
-- [ ] main/step02_docx/output/youshiki1_3_narrative.docx が生成される
+- [x] `bash main/step02_docx/build_narrative.sh` がエラーなく完了する
+- [x] main/step02_docx/output/youshiki1_2_narrative.docx が生成される
+- [x] main/step02_docx/output/youshiki1_3_narrative.docx が生成される
 - [ ] 生成されたdocxをWordで開いてセクション見出しと段落が正しく表示される
 - [ ] 日本語テキストが文字化けしていない
 - [ ] reference-docのスタイル（フォント等）が適用されている
