@@ -25,6 +25,7 @@ import yaml
 from docx import Document
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+from docx.table import Table as DocxTable
 
 
 # ============================================================================
@@ -280,18 +281,23 @@ def fill_1_1(tbl, cfg, res, ofund):
     set_cell(tbl.cell(14, 3),
              f"〒\nTEL: {admin.get('tel', '')}\nE-mail: {admin.get('email', '')}")
 
-    # ⑪ 研究者リスト (rows 17–19)
+    # ⑪ 研究者リスト (rows 17–)
+    # Dynamically add rows if template doesn't have enough for all co-investigators
+    co_list = res.get("co_investigators", [])
+    needed_rows = 18 + len(co_list)
+    while len(tbl.rows) < needed_rows:
+        src_tr = tbl.rows[-1]._element
+        new_tr = copy.deepcopy(src_tr)
+        tbl._element.append(new_tr)
+
     set_cell(tbl.cell(17, 0), inst.get("name", ""))
     set_cell(tbl.cell(17, 3), f"研究代表者\n{pi['name_ja']}")
     set_cell(tbl.cell(17, 4),
              f"{pi.get('department', '')}・{pi.get('position', '')}\n"
              f"TEL: {ct.get('tel', '')}\nE-mail: {ct.get('email', '')}")
 
-    for idx, co in enumerate(res.get("co_investigators", [])):
+    for idx, co in enumerate(co_list):
         row = 18 + idx
-        if row >= len(tbl.rows):
-            warnings.warn("様式1-1: not enough rows for all co-investigators")
-            break
         co_ct = co.get("contact", {})
         set_cell(tbl.cell(row, 0),
                  co.get("institution", co.get("affiliation", "")))
@@ -783,8 +789,14 @@ def delete_sections(doc, tables, cfg, res):
                 if ti >= 0:
                     remove.add(ti)
                     # Remove year-header paragraph above the table
-                    if ti > 0 and "年目" in _text(children[ti - 1]):
-                        remove.add(ti - 1)
+                    # (may not be directly above — scan upward past empty paragraphs)
+                    for j in range(ti - 1, max(ti - 6, -1), -1):
+                        txt = _text(children[j])
+                        if "年目" in txt:
+                            remove.add(j)
+                            break
+                        if txt.strip():
+                            break  # hit non-empty, non-header content
 
     # Delete in reverse order to keep indices stable
     for i in sorted(remove, reverse=True):
@@ -862,7 +874,27 @@ def main():
         fill_4(tables["4-1"], cfg, res["pi"], "様式4-1")
 
     if "4-2" in tables and has_co:
-        fill_4(tables["4-2"], cfg, res["co_investigators"][0], "様式4-2")
+        co_list = res["co_investigators"]
+        fill_4(tables["4-2"], cfg, co_list[0],
+               f"様式4-2 (1/{len(co_list)} {co_list[0]['name_ja']})")
+        # Duplicate 4-2 table for remaining co-investigators
+        prev_el = tables["4-2"]._element
+        for ci in range(1, len(co_list)):
+            # Page break paragraph between tables
+            bp = OxmlElement("w:p")
+            br_run = OxmlElement("w:r")
+            br_el = OxmlElement("w:br")
+            br_el.set(qn("w:type"), "page")
+            br_run.append(br_el)
+            bp.append(br_run)
+            prev_el.addnext(bp)
+            # Deep-copy and insert table
+            new_tbl = copy.deepcopy(tables["4-2"]._element)
+            bp.addnext(new_tbl)
+            wrapped = DocxTable(new_tbl, doc)
+            fill_4(wrapped, cfg, co_list[ci],
+                   f"様式4-2 ({ci + 1}/{len(co_list)} {co_list[ci]['name_ja']})")
+            prev_el = new_tbl
 
     fill_consent_forms(doc, cfg, res)
 

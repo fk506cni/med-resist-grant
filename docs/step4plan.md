@@ -91,10 +91,84 @@ youshiki1_3.md → Pandoc → youshiki1_3_narrative.docx（独立ファイル）
 
 **技術的考慮事項**:
 - python-docx での文書間要素コピーは書式崩壊リスクがある（SPEC.md で言及済み）
-- **対策1**: OOXMLレベルでの直接操作（lxml で body 要素を移植）
+- **対策1**: OOXMLレベルでの直接操作 — python-docxの高レベルAPIではなく、stdlib `zipfile` + `xml.etree.ElementTree` でZIPアーカイブを直接操作する（jami-abstract-pandocと同じ方式）
 - **対策2**: Pandoc 側で reference.docx のスタイル定義をテンプレートと統一し、スタイル競合を最小化
-- **対策3**: 参考プロジェクト `/home/dryad/anal/jami-abstract-pandoc/` の OOXML 後処理パターンを参照
-- Pandoc が生成する段落スタイル（Heading 1, Body Text 等）とテンプレートのスタイルのマッピングが必要
+- **対策3**: 参考プロジェクト `/home/dryad/anal/jami-abstract-pandoc/` のOOXML後処理パターンから再利用可能なパターンを参照（後述の参考パターン一覧参照）
+- **フォールバック**: OOXML挿入が1週間以内に安定しない場合、Windows COM結合方式にピボットする
+
+### Step B-1: ZIPレベルマージ仕様
+
+inject_narrative.py は以下の **5つのZIPパーツ** を処理する必要がある:
+
+#### 1. word/document.xml — body 要素の移植
+- ソースdocx（narrative）の `<w:body>` 子要素（`<w:p>`, `<w:tbl>` 等）をターゲットdocxの挿入ポイントにコピー
+- **ソースの末尾 `<w:sectPr>` は除外する**（Pandocが必ず生成する。コピーするとターゲットにセクションブレークが挿入される）
+- 挿入先のプレースホルダ段落を削除してから挿入
+
+#### 2. word/_rels/document.xml.rels — リレーションシップ統合
+- ソースdocxのrels内のリレーションシップ（画像=`rId*`, ハイパーリンク等）をターゲットに追加
+- **rId衝突回避**: ターゲットの既存rIdの最大値を取得し、ソース側のrIdをリナンバリング
+- コピーされたbody要素内のrId参照（`<a:blip r:embed="rIdX">` 等）を新IDに書き換え
+- 画像がない場合はこのステップをスキップ
+
+#### 3. word/media/ — メディアファイルコピー
+- ソースdocxのZIP内 `word/media/` 配下のファイルをターゲットZIPにコピー
+- ファイル名衝突時はリネーム（例: image1.png → image_n1.png）
+
+#### 4. word/numbering.xml — リスト定義統合
+- Pandocが番号付き/箇条書きリストを生成した場合、`word/numbering.xml` にリスト定義が含まれる
+- ソースの `<w:abstractNum>` / `<w:num>` 定義をターゲットに追加
+- `w:abstractNumId` / `w:numId` の衝突を回避するためリナンバリング
+- コピーされたbody要素内の `<w:numPr>` 参照を新IDに書き換え
+- ソースにnumbering.xmlがない場合はスキップ
+
+#### 5. [Content_Types].xml — コンテンツタイプ登録
+- ソースに新しいメディアタイプ（SVG, EMF等）がある場合、ターゲットの `[Content_Types].xml` に追加
+- 重複するExtension/PartNameは追加しない
+
+### Step B-2: セクションブレーク（w:sectPr）処理
+
+- **Prompt 9-1 で各 sectPr の位置とプロパティを調査する** こと（ページ設定、ヘッダ/フッタ、ページ番号設定を含む）
+- テンプレート内のsectPrは**絶対に削除・移動しない**（fill_forms.py の delete_sections と同じポリシー）
+- 挿入対象のbody要素を取り出す際、ソースdocxの末尾sectPrを必ず除外
+- 挿入ポイントがsectPr直前の場合、sectPrの前に要素を挿入（sectPr自体は移動しない）
+- ヘッダ/フッタ: 各セクションの `w:headerReference` / `w:footerReference` が壊れないよう、sectPrの内容は変更しない
+
+### Step B-3: スタイルマッピング
+
+Pandoc docxとテンプレートdocxのスタイル体系が異なる:
+
+| Pandoc docx | テンプレート docx | 対応方針 |
+|---|---|---|
+| Heading 1 | 公募要領：タイトル２　節項 | reference.docxでフォント・サイズを合わせる |
+| Heading 2 | 公募要領：タイトル３　目 | 同上 |
+| Body Text / First Paragraph | 公募要領：本文１ | 同上 |
+| Compact | （対応なし） | Body Textと同じ定義にする |
+| TableGrid | （テンプレート固有テーブルスタイル） | 要調査 |
+
+**推奨アプローチ**: テンプレートの `word/styles.xml` にPandocスタイルの定義を追加する。
+定義はテンプレートの既存スタイル（公募要領：本文１ 等）と同じフォント・サイズ・行間にする。
+これにより、Pandoc側のスタイル名（Heading 1等）を変更せずにテンプレートの書式で表示される。
+
+### Step B-4: ルートタグ保存（必須テクニック）
+
+jami-abstract-pandocの `wrap-textbox.py:398-470` で実装されている重要なテクニック:
+- ElementTreeはシリアライズ時に未使用の名前空間宣言を除去する
+- Wordは特定の名前空間宣言が欠落したdocxを不正なファイルとして拒否する
+- **対策**: シリアライズ前に `<w:document ...>` ルートタグを正規表現で保存し、シリアライズ後に復元する
+
+### jami-abstract-pandocから再利用可能なパターン
+
+| パターン | ファイル:行 | 用途 |
+|---------|-----------|------|
+| ZIPアーカイブI/O | wrap-textbox.py:754-759, 851-853 | docxの読み書き |
+| 名前空間登録 | wrap-textbox.py:20-38 | OOXML全名前空間の `ET.register_namespace` |
+| ルートタグ保存 | wrap-textbox.py:398-470 | `extract_root_tag()` / `restore_root_tag()` |
+| body要素列挙・削除・挿入 | wrap-textbox.py:780-831 | `list(body)` → iterate → remove/insert |
+| リレーションシップ操作 | wrap-textbox.py:660-751 | rId追加、Content_Types更新 |
+| スタイル追加 | fix-reference-cols.py:90-172 | styles.xmlへのスタイル定義追加 |
+
+**注意**: 上記はいずれも**単一文書内の操作**。文書間要素コピー（rIdリナンバリング、numbering統合）は新規実装が必要。
 
 ### Step C: ビルドパイプラインへの統合
 
@@ -148,26 +222,36 @@ phase_inject() {
 
 | リスク | 影響 | 対策 |
 |--------|------|------|
-| python-docx での要素挿入時に書式崩壊 | レイアウト崩れ | OOXML 直接操作（lxml）で対応。jami-abstract-pandoc の実績あり |
-| Pandoc スタイルとテンプレートスタイルの競合 | フォント・余白の不整合 | reference.docx をテンプレートから抽出して統一 |
+| OOXML要素挿入時にスタイル崩壊 | フォント・余白の不整合 | Step B-3のスタイルマッピング + テンプレートstyles.xmlにPandocスタイル定義追加 |
+| rId/numId衝突でWord修復ダイアログ | ファイル破損 | Step B-1のリナンバリング処理を必須実装 |
+| sectPr不整合で空白ページ/ヘッダ消失 | レイアウト崩壊 | Step B-2のsectPr保護を厳守 |
+| ルートタグの名前空間欠落 | Wordがファイルを拒否 | Step B-4のルートタグ保存を必須適用 |
 | 様式1-2 のページ数が15p超過 | 提出不可 | inject 時にページ数チェックを追加 |
 | テンプレート様式の更新（将来の公募時） | セクション境界の変更 | マーカー検出をテキストパターンベースにし、ハードコードしない |
+| inject失敗時の入力ファイル破損 | 再ビルド必要 | 一時ファイルに出力→成功時にリネーム（atomic write） |
 
-## 代替案（不採用）
+## 代替案（フォールバック）
 
-1. **PDF結合方式**: 個別 PDF を後から結合 → ページ番号が不連続になる、テンプレートヘッダが二重になる
-2. **空セクション削除 + PDF結合**: テンプレートの様式準拠性が失われる
-3. **手動結合**: 再現性がない、ヒューマンエラーのリスク
+| 方式 | 書式崩壊リスク | 実装難度 | ページ番号 | テンプレート準拠 | 採否 |
+|------|--------------|---------|----------|--------------|------|
+| OOXML挿入（本計画） | 中〜高 | 高 | 制御可能 | 高 | **主方式** |
+| Windows COM結合 | 極低 | 中 | Word制御 | 高 | **第1フォールバック** |
+| PDF結合（pypdf） | 低 | 低 | 要対処 | 中 | **第2フォールバック** |
+| 手動結合 | 低 | 低 | 手動 | 中 | 最終手段 |
+
+- **Windows COM結合**: watch-and-convert.ps1 のVBScript基盤を拡張し、Word InsertFile で文書統合 → PDF化。Word自身がレイアウト保証。Windows依存だがパイプラインは既にWindows PDF変換に依存しているため追加コストは低い。
+- **PDF結合**: SPEC.md §3.1 の当初方針。ページ番号の非連続が最大の懸念。pypdf のCJKフォント処理に注意。
+- **ピボット基準**: OOXML挿入方式の実装開始から1週間以内にWord修復ダイアログなしで開けるdocxが生成できない場合、Windows COM方式にピボットする。
 
 ## 作業順序
 
-1. Step A（構造解析）: 1h — テンプレートの段落構造を把握
-2. Step B（inject_narrative.py 作成）: 3-4h — コアロジックの実装
+1. Step A（構造解析）: 1-2h — テンプレート **および** Pandoc出力の両方の構造を把握
+2. Step B（inject_narrative.py 作成）: 10-15h — コアロジック + ZIPレベルマージ + スタイルマッピング
 3. Step C（build.sh 統合）: 30min
 4. Step D（package/roundtrip 更新）: 30min
-5. Step E（テスト）: 1h
+5. Step E（テスト）: 2h — docxの妥当性検証、Word修復ダイアログチェック含む
 
 ## 依存関係
 
-- Docker 環境に追加パッケージは不要（python-docx + lxml は既存）
-- jami-abstract-pandoc の OOXML 後処理コードを参考にする
+- Docker 環境に追加パッケージは不要（xml.etree.ElementTree, zipfile は Python 標準ライブラリ）
+- jami-abstract-pandoc のOOXML後処理パターンを参照（再利用可能パターン一覧は Step B-4 後の表を参照）

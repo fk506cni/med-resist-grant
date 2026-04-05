@@ -5,7 +5,7 @@
 ### 0.1 背景
 
 防衛装備庁 令和8年度 安全保障技術研究推進制度（委託事業）への応募書類を作成する。
-研究テーマ (23) 医療・医工学に関する基礎研究（抗菌薬耐性関連）、Type A応募を想定。
+研究テーマ (23) 医療・医工学に関する基礎研究（サイバー攻撃×地域医療シミュレーション）、Type A応募を想定。
 
 ### 0.2 目的
 
@@ -158,9 +158,11 @@ RUNNER=docker DATA_DIR=data/dummy SETUP_DIR=data/dummy ./scripts/build.sh valida
 | besshi5_filled.docx | 別紙5（テーブル記入済） | Windows で PDF化 |
 | betten_NN_romanized.docx | 別添（研究者ごと、例: betten_01_yamada.docx） | Windows で PDF化 |
 
-※ 様式1-2, 1-3の統合方法: 各docxをWindows側で個別にPDF化した後、
-pypdf または Acrobat で様式1-5のPDFと結合して1つの提出用PDFを作成する。
-python-docxでの文書結合は書式崩壊リスクが高いため採用しない。
+※ 様式1-2, 1-3の統合方法: OOXMLレベル（lxml/ElementTree）で body 要素を
+テンプレートの該当セクションに直接挿入する（docs/step4plan.md 参照）。
+python-docx 高レベルAPIでの文書結合は書式崩壊リスクが高いため採用しないが、
+ZIPアーカイブ直接操作によるOOXML要素挿入は、リレーションシップ・スタイル・
+numbering の個別制御が可能なため採用する。フォールバック: Windows COM結合 or PDF結合。
 ※ 未記入の様式（様式5等）は様式ごと削除し、提出PDFに含めないこと（別紙2 §4）。
 
 ### 3.2 Excelファイル (step03_excel/output/)
