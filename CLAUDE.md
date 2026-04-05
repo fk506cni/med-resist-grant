@@ -73,7 +73,7 @@ med-resist-grant/
     ├── create_package.sh        # パッケージング・バリデーション (成果物集約・サイズチェック・チェックリスト)
     ├── sync_gdrive.sh           # Google Drive同期 (rclone copy)
     ├── collab_watcher.sh        # 共同執筆トリガー監視 (Google Drive polling → ビルド → 成果物配信 → Google Chat通知)
-    ├── collab/                  # 共同執筆用リソース (Step 8 で作成予定)
+    ├── collab/                  # 共同執筆用リソース
     │   └── README_使い方.md     # 共同研究者向け使い方説明
     └── windows/                 # Windows側PDF変換スクリプト
         ├── watch-and-convert.ps1   # フォルダ監視 docx→PDF 自動変換
