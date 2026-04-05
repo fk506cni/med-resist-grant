@@ -2,14 +2,23 @@
 # build.sh — 全ドキュメント生成マスタースクリプト
 #
 # Usage:
-#   ./scripts/build.sh [--docker|--local] [TARGET...]
+#   ./scripts/build.sh [SUBCOMMAND...]
 #
-# Targets:
-#   all        全ステップ実行（デフォルト）
-#   forms      様式1-1〜5 テーブルフォーム記入 (fill_forms.py)
-#   narrative  様式1-2, 1-3 Markdown→docx (build_narrative.sh)
-#   security   別紙5, 別添 セキュリティ関連 (fill_security.py)
-#   excel      様式6-8 Excel記入 (fill_excel.py)
+# Subcommands:
+#   (なし)      全ステップ実行（validate + forms + narrative + excel + security）
+#   validate   YAMLバリデーションのみ
+#   forms      テーブルフォーム記入 (step02_docx/fill_forms.py)
+#   narrative  Markdown→docx変換 (step02_docx/build_narrative.sh)
+#   security   セキュリティ文書記入 (step02_docx/fill_security.py)
+#   excel      Excel記入 (step03_excel/fill_excel.py)
+#   package    パッケージング (scripts/create_package.sh)
+#   clean      全output/をクリーン
+#   check      全出力ファイルの存在とサイズチェック
+#
+# Environment:
+#   RUNNER=docker   docker compose run 経由（デフォルト）
+#   RUNNER=uv       uv run 経由
+#   RUNNER=direct   直接実行
 
 set -euo pipefail
 
@@ -20,7 +29,9 @@ cd "$PROJECT_ROOT"
 
 # --- 設定 ---
 COMPOSE_FILE="docker/docker-compose.yml"
-MODE="docker"
+RUNNER="${RUNNER:-docker}"
+DATA_DIR="${DATA_DIR:-data/source}"
+SETUP_DIR="${SETUP_DIR:-main/00_setup}"
 TARGETS=()
 
 # --- 結果追跡 ---
@@ -29,30 +40,50 @@ declare -A RESULTS=()
 # --- 引数解析 ---
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --docker) MODE="docker"; shift ;;
-        --local)  MODE="local"; shift ;;
         -h|--help)
-            head -14 "$0" | tail -13
+            head -21 "$0" | tail -20
             exit 0
             ;;
         *) TARGETS+=("$1"); shift ;;
     esac
 done
 
-# デフォルト: all
+# デフォルト: 全ステップ
 if [[ ${#TARGETS[@]} -eq 0 ]]; then
     TARGETS=("all")
 fi
 
-# --- Docker実行ヘルパー ---
-run_docker() {
-    docker compose -f "$COMPOSE_FILE" run --rm \
-        -u "$(id -u):$(id -g)" python "$@"
+# --- 実行ヘルパー ---
+run_python() {
+    case "$RUNNER" in
+        docker)
+            docker compose -f "$COMPOSE_FILE" run --rm \
+                -u "$(id -u):$(id -g)" python python "$@"
+            ;;
+        uv)
+            uv run python "$@"
+            ;;
+        direct)
+            python3 "$@"
+            ;;
+    esac
+}
+
+run_bash() {
+    local script="$1"; shift
+    case "$RUNNER" in
+        docker)
+            bash "$script" --docker "$@"
+            ;;
+        uv|direct)
+            bash "$script" --local "$@"
+            ;;
+    esac
 }
 
 # --- Docker イメージ確認 ---
 ensure_docker_image() {
-    if [[ "$MODE" != "docker" ]]; then return; fi
+    if [[ "$RUNNER" != "docker" ]]; then return; fi
     if ! docker compose -f "$COMPOSE_FILE" images --quiet python 2>/dev/null | grep -q .; then
         echo "Docker イメージが見つかりません。ビルドします..."
         docker compose -f "$COMPOSE_FILE" build python
@@ -61,6 +92,17 @@ ensure_docker_image() {
 
 # --- ステップ関数 ---
 
+build_validate() {
+    local script="scripts/validate_yaml.py"
+    echo "=== validate: YAMLバリデーション ==="
+    if run_python "$script" --setup-dir "$SETUP_DIR"; then
+        RESULTS[validate]="OK"
+    else
+        RESULTS[validate]="FAIL"
+        return 1
+    fi
+}
+
 build_forms() {
     local script="main/step02_docx/fill_forms.py"
     if [[ ! -f "$script" ]]; then
@@ -68,18 +110,22 @@ build_forms() {
         echo "SKIP: $script が未作成です"
         return
     fi
-    if [[ ! -f "data/source/r08youshiki1_5.docx" ]]; then
+    if [[ ! -f "$DATA_DIR/r08youshiki1_5.docx" ]]; then
         RESULTS[forms]="FAIL"
-        echo "FAIL: data/source/r08youshiki1_5.docx が見つかりません" >&2
-        return
+        echo "FAIL: $DATA_DIR/r08youshiki1_5.docx が見つかりません" >&2
+        return 1
     fi
     echo "=== forms: テーブルフォーム記入 ==="
-    if [[ "$MODE" == "docker" ]]; then
-        run_docker python "$script"
+    if run_python "$script" \
+        --config "$SETUP_DIR/config.yaml" \
+        --researchers "$SETUP_DIR/researchers.yaml" \
+        --other-funding "$SETUP_DIR/other_funding.yaml" \
+        --source "$DATA_DIR/r08youshiki1_5.docx"; then
+        RESULTS[forms]="OK"
     else
-        python3 "$script"
+        RESULTS[forms]="FAIL"
+        return 1
     fi
-    RESULTS[forms]="OK"
 }
 
 build_narrative() {
@@ -90,12 +136,12 @@ build_narrative() {
         return
     fi
     echo "=== narrative: Markdown→docx 変換 ==="
-    if [[ "$MODE" == "docker" ]]; then
-        bash "$script" --docker
+    if run_bash "$script"; then
+        RESULTS[narrative]="OK"
     else
-        bash "$script" --local
+        RESULTS[narrative]="FAIL"
+        return 1
     fi
-    RESULTS[narrative]="OK"
 }
 
 build_security() {
@@ -106,12 +152,17 @@ build_security() {
         return
     fi
     echo "=== security: セキュリティ関連書類 ==="
-    if [[ "$MODE" == "docker" ]]; then
-        run_docker python "$script"
+    if run_python "$script" \
+        --config "$SETUP_DIR/config.yaml" \
+        --researchers "$SETUP_DIR/researchers.yaml" \
+        --security "$SETUP_DIR/security.yaml" \
+        --besshi5 "$DATA_DIR/r08youshiki_besshi5.docx" \
+        --betten "$DATA_DIR/r08youshiki_betten.docx"; then
+        RESULTS[security]="OK"
     else
-        python3 "$script"
+        RESULTS[security]="FAIL"
+        return 1
     fi
-    RESULTS[security]="OK"
 }
 
 build_excel() {
@@ -122,37 +173,148 @@ build_excel() {
         return
     fi
     echo "=== excel: Excel記入 ==="
-    if [[ "$MODE" == "docker" ]]; then
-        run_docker python "$script"
+    if run_python "$script" \
+        --config "$SETUP_DIR/config.yaml" \
+        --researchers "$SETUP_DIR/researchers.yaml" \
+        --source-dir "$DATA_DIR"; then
+        RESULTS[excel]="OK"
     else
-        python3 "$script"
+        RESULTS[excel]="FAIL"
+        return 1
     fi
-    RESULTS[excel]="OK"
+}
+
+build_package() {
+    local script="scripts/create_package.sh"
+    if [[ ! -f "$script" ]]; then
+        RESULTS[package]="SKIP"
+        echo "SKIP: $script が未作成です"
+        return
+    fi
+    echo "=== package: パッケージング ==="
+    if bash "$script"; then
+        RESULTS[package]="OK"
+    else
+        RESULTS[package]="FAIL"
+        return 1
+    fi
+}
+
+do_clean() {
+    echo "=== clean: 全output/をクリーン ==="
+    local count=0
+    for dir in main/step01_narrative/output \
+               main/step02_docx/output \
+               main/step03_excel/output \
+               main/step04_package/output \
+               data/output; do
+        if [[ -d "$dir" ]]; then
+            # .gitkeep は残す
+            for f in "$dir"/*.docx "$dir"/*.xlsx "$dir"/*.pdf; do
+                if [[ -f "$f" ]]; then
+                    rm "$f"
+                    count=$((count + 1))
+                fi
+            done
+        fi
+    done
+    echo "  $count ファイルを削除しました"
+}
+
+do_check() {
+    echo "=== check: 出力ファイルチェック ==="
+    echo ""
+
+    # 必須ファイル（固定名）
+    local expected_files=(
+        "main/step02_docx/output/youshiki1_5_filled.docx"
+        "main/step02_docx/output/youshiki1_2_narrative.docx"
+        "main/step02_docx/output/youshiki1_3_narrative.docx"
+        "main/step02_docx/output/besshi5_filled.docx"
+        "main/step03_excel/output/youshiki6.xlsx"
+        "main/step03_excel/output/youshiki7.xlsx"
+        "main/step03_excel/output/youshiki8.xlsx"
+    )
+
+    local ok=0
+    local missing=0
+    local oversize=0
+    local MAX_SIZE=$((10 * 1024 * 1024))  # 10MB
+
+    check_file() {
+        local f="$1"
+        if [[ -f "$f" ]]; then
+            local size
+            size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null || echo 0)
+            local human
+            human=$(du -h "$f" | cut -f1)
+            if [[ "$size" -gt "$MAX_SIZE" ]]; then
+                printf "  ✗ %-55s %s (>10MB!)\n" "$f" "$human"
+                oversize=$((oversize + 1))
+            else
+                printf "  ✓ %-55s %s\n" "$f" "$human"
+            fi
+            ok=$((ok + 1))
+        else
+            printf "  - %-55s (未生成)\n" "$f"
+            missing=$((missing + 1))
+        fi
+    }
+
+    for f in "${expected_files[@]}"; do
+        check_file "$f"
+    done
+
+    # 動的ファイル: betten_*.docx（研究者人数分）
+    local betten_found=0
+    for f in main/step02_docx/output/betten_*.docx; do
+        if [[ -f "$f" ]]; then
+            check_file "$f"
+            betten_found=$((betten_found + 1))
+        fi
+    done
+    if [[ "$betten_found" -eq 0 ]]; then
+        printf "  - %-55s (未生成)\n" "main/step02_docx/output/betten_*.docx"
+        missing=$((missing + 1))
+    fi
+
+    echo ""
+    echo "結果: $ok 存在 / $missing 未生成 / $oversize サイズ超過"
+
+    if [[ "$oversize" -gt 0 ]]; then
+        echo "WARNING: 10MBを超えるファイルがあります（提出制限: 各10MB以下）" >&2
+    fi
 }
 
 # --- ステップ実行 ---
 run_step() {
     local step="$1"
     case "$step" in
+        validate)  build_validate ;;
         forms)     build_forms ;;
         narrative) build_narrative ;;
         security)  build_security ;;
         excel)     build_excel ;;
+        package)   build_package ;;
+        clean)     do_clean ;;
+        check)     do_check ;;
         *)
-            echo "ERROR: 不明なターゲット: $step" >&2
-            echo "  有効なターゲット: all, forms, narrative, security, excel" >&2
+            echo "ERROR: 不明なサブコマンド: $step" >&2
+            echo "  有効なサブコマンド: validate, forms, narrative, security, excel, package, clean, check" >&2
             exit 1
             ;;
     esac
 }
 
 # --- メイン ---
-echo "Mode: $MODE"
+echo "Runner: $RUNNER"
+echo "Data:   $DATA_DIR"
+echo "Setup:  $SETUP_DIR"
 echo ""
 
 ensure_docker_image
 
-ALL_STEPS=(forms narrative security excel)
+ALL_STEPS=(validate forms narrative security excel)
 
 for target in "${TARGETS[@]}"; do
     if [[ "$target" == "all" ]]; then
@@ -163,6 +325,13 @@ for target in "${TARGETS[@]}"; do
     else
         run_step "$target" || RESULTS[$target]="FAIL"
         echo ""
+    fi
+done
+
+# clean / check はサマリー不要
+for target in "${TARGETS[@]}"; do
+    if [[ "$target" == "clean" || "$target" == "check" ]]; then
+        exit 0
     fi
 done
 
@@ -186,7 +355,15 @@ done
 echo ""
 echo "--- ステップ結果 ---"
 HAS_FAIL=0
-for step in "${ALL_STEPS[@]}"; do
+
+# 対象ステップの特定
+if [[ " ${TARGETS[*]} " == *" all "* ]]; then
+    SHOW_STEPS=("${ALL_STEPS[@]}")
+else
+    SHOW_STEPS=("${TARGETS[@]}")
+fi
+
+for step in "${SHOW_STEPS[@]}"; do
     status="${RESULTS[$step]:-N/A}"
     case "$status" in
         OK)   printf "  %-12s ✓ OK\n" "$step" ;;

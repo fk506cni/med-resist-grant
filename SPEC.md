@@ -98,6 +98,7 @@
 
 - **入力**: 手動入力
 - **処理**: YAMLファイルの作成・編集
+- **バリデーション**: `scripts/validate_yaml.py` で整合性チェック（必須フィールド、予算整合、研究者-セキュリティ突合、エフォート率）。`--setup-dir` で読み込み先を変更可能
 - **出力**: config.yaml, researchers.yaml, other_funding.yaml, security.yaml
 
 #### Step 01: 本文執筆 (step01_narrative/)
@@ -126,6 +127,22 @@
 - **入力**: Step 02-03 の出力
 - **処理**: ファイル収集、バリデーション、サイズチェック
 - **出力**: `step04_package/output/` に提出用ファイル一式
+
+### 2.3 E2Eテスト (data/dummy/)
+
+`data/source/` の実ファイルがなくてもパイプライン全体の動作確認が可能。
+
+- **ダミーデータ**: `data/dummy/` に YAML 4ファイル + スタブ docx/xlsx 6ファイル
+- **スタブ生成**: `data/dummy/generate_stubs.py` が python-docx / openpyxl で最小限のテーブル構造を持つスタブを生成
+- **実行方法**: `DATA_DIR` / `SETUP_DIR` 環境変数で build.sh のデータパスを切替
+
+```bash
+# E2Eテスト実行
+RUNNER=docker DATA_DIR=data/dummy SETUP_DIR=data/dummy ./scripts/build.sh
+
+# バリデーションのみ
+RUNNER=docker DATA_DIR=data/dummy SETUP_DIR=data/dummy ./scripts/build.sh validate
+```
 
 ---
 

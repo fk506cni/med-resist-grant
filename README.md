@@ -55,15 +55,22 @@ docker compose -f docker/docker-compose.yml up -d --build
 # 5. 本文を執筆
 # main/step01_narrative/youshiki1_2.md, youshiki1_3.md
 
-# 6. ビルド
+# 6. ビルド（デフォルト: Docker経由）
 ./scripts/build.sh
-```
 
-### uv環境（Docker不使用時）
+# サブコマンド例
+./scripts/build.sh validate   # YAMLバリデーションのみ
+./scripts/build.sh forms      # テーブルフォーム記入のみ
+./scripts/build.sh clean      # 全output/をクリーン
+./scripts/build.sh check      # 出力ファイルの存在・サイズチェック
 
-```bash
-uv sync
-uv run python main/step02_docx/fill_forms.py
+# 実行環境切替（RUNNER環境変数）
+RUNNER=docker ./scripts/build.sh   # Docker (デフォルト)
+RUNNER=uv ./scripts/build.sh       # uv run 経由
+RUNNER=direct ./scripts/build.sh   # 直接実行
+
+# E2Eテスト（data/source/ の実ファイル不要）
+RUNNER=docker DATA_DIR=data/dummy SETUP_DIR=data/dummy ./scripts/build.sh
 ```
 
 ## Project Structure
@@ -121,10 +128,12 @@ uv run python main/step02_docx/fill_forms.py
 
 | スクリプト | 説明 |
 |-----------|------|
-| `scripts/build.sh` | 全ドキュメント生成 (forms/narrative/security/excel) |
+| `scripts/build.sh` | 全ドキュメント生成 (validate/forms/narrative/security/excel/clean/check) |
+| `scripts/validate_yaml.py` | YAMLバリデーション（必須フィールド、予算整合性、エフォート率等） |
 | `scripts/roundtrip.sh` | ビルド→push→PDF待ち→pull 一括実行 |
 | `scripts/sync_gdrive.sh` | Google Drive同期 (rclone copy, push/pull) |
-| `scripts/create_package.sh` | パッケージング・バリデーション（未作成） |
+| `scripts/create_package.sh` | パッケージング・バリデーション（成果物集約、サイズチェック、チェックリスト出力） |
+| `data/dummy/generate_stubs.py` | E2Eテスト用スタブ docx/xlsx 生成 |
 | `scripts/archive_message.sh` | message.md をタイムスタンプ付きで jank/ に退避 |
 | `scripts/commit-push.sh` | message.md の内容でコミット&プッシュ |
 | `scripts/windows/watch-and-convert.ps1` | Windows: フォルダ監視→docx→PDF自動変換 |

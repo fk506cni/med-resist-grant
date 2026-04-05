@@ -30,14 +30,15 @@ med-resist-grant/
 │   │   ├── r08youshiki7.xlsx    # 様式7: 研究者一覧
 │   │   ├── r08youshiki8.xlsx    # 様式8: 連絡先
 │   │   └── 募集要項.pdf          # 公募要領 (44p + 別紙)
-│   ├── dummy/                   # ダミーデータ (git管理)
+│   ├── dummy/                   # E2Eテスト用ダミーデータ (git管理、generate_stubs.py でスタブ生成)
 │   ├── output/                  # ビルド成果物集約先 (gitignored)
 │   └── products/                # Windows変換済みPDF (gitignored)
 ├── docker/                      # Docker設定
 │   ├── docker-compose.yml
 │   └── python/Dockerfile
 ├── docs/
-│   ├── prompts.md               # 実装プロンプト集
+│   ├── prompts.md               # 実装プロンプト集（Step 8〜）
+│   ├── prompts_trash.md         # 完了済みプロンプト（Steps 0-7 アーカイブ）
 │   └── __archives/
 ├── jank/                        # 一時ファイル (gitignored)
 ├── main/
@@ -64,10 +65,14 @@ med-resist-grant/
 ├── templates/                   # Pandoc reference-doc 等
 │   └── reference.docx           # Pandocスタイル定義 (デフォルト生成済み、スタイル要調整)
 └── scripts/
-    ├── build.sh                 # 全ドキュメント生成
+    ├── build.sh                 # 全ドキュメント生成 (RUNNER=docker/uv/direct)
+    ├── validate_yaml.py         # YAMLバリデーション (build.sh validate から呼出、--setup-dir で参照先変更可)
     ├── roundtrip.sh             # ビルド→push→PDF待ち→pull 一括実行
-    ├── create_package.sh        # パッケージング・バリデーション (未作成)
+    ├── create_package.sh        # パッケージング・バリデーション (成果物集約・サイズチェック・チェックリスト)
     ├── sync_gdrive.sh           # Google Drive同期 (rclone copy)
+    ├── collab_watcher.sh        # 共同執筆トリガー監視 (Step 8 で作成予定)
+    ├── collab/                  # 共同執筆用リソース (Step 8 で作成予定)
+    │   └── README_使い方.md     # 共同研究者向け使い方説明
     └── windows/                 # Windows側PDF変換スクリプト
         ├── watch-and-convert.ps1   # フォルダ監視 docx→PDF 自動変換
         └── watch-and-convert.bat   # PS1のランチャー
@@ -115,6 +120,30 @@ med-resist-grant/
 
 - `/home/dryad/anal/jami-abstract-pandoc/` — JAMI学会抄録のMarkdown→Word変換システム
   - Pandocワークフロー、Docker構成、Luaフィルタ、OOXML後処理等を参考
+
+### Build
+
+```bash
+# 全ステップ実行（デフォルト: Docker経由）
+./scripts/build.sh
+
+# サブコマンド: validate, forms, narrative, security, excel, package, clean, check
+./scripts/build.sh validate    # YAMLバリデーションのみ
+./scripts/build.sh clean       # 全output/をクリーン
+./scripts/build.sh check       # 出力ファイルの存在・サイズチェック
+
+# 実行環境切替（RUNNER環境変数）
+RUNNER=docker ./scripts/build.sh   # Docker (デフォルト)
+RUNNER=uv ./scripts/build.sh       # uv run 経由
+RUNNER=direct ./scripts/build.sh   # 直接実行
+
+# E2Eテスト（data/source/ の実ファイル不要、ダミーデータで全ステップ実行）
+RUNNER=docker DATA_DIR=data/dummy SETUP_DIR=data/dummy ./scripts/build.sh
+
+# 環境変数:
+#   DATA_DIR   — 様式テンプレート参照先 (デフォルト: data/source)
+#   SETUP_DIR  — YAML設定参照先 (デフォルト: main/00_setup)
+```
 
 ### Containers
 

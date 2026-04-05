@@ -1,0 +1,421 @@
+# =============================================================================
+# config.yaml — プロジェクトメタデータ（全提出書類の共通データソース）
+# =============================================================================
+# 対応様式: 様式1-1, 様式2-1, 様式2-2, 様式6(Excel)
+# 参照先: fill_forms.py (step02_docx), fill_excel.py (step03_excel)
+#
+# 金額の単位: 千円（様式準拠、消費税込み）
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# project: プロジェクト基本情報
+# → 様式1-1 ①〜⑧, 様式6 D〜N列
+# ---------------------------------------------------------------------------
+project:
+  # 様式1-1 ①研究テーマ / 様式6 D列
+  theme_number: 23  # (23) 医療・医工学に関する基礎研究
+
+  # 様式1-1 ②研究課題名（日）/ 様式6 I列
+  # 30文字以内
+  title_ja: "薬剤耐性菌の迅速検出と耐性機序解明に関する基礎研究"
+
+  # 様式1-1 ②研究課題名（英）
+  title_en: "Basic Research on Rapid Detection and Resistance Mechanism Elucidation of Antimicrobial-Resistant Bacteria"
+
+  # 様式1-1 ③研究分野 / 様式6 F列
+  # 選択肢: 知能 / 情報 / 通信 / 電気 / 電子 / 光 / 材料 / 機械 / 医療 / その他
+  field: "医療"
+
+  # 様式1-1 ④キーワード / 様式6 E列
+  # 最大5つ（募集要項 別紙1参照）
+  keywords:
+    - "抗菌薬耐性"
+    - "迅速診断"
+    - "全ゲノム解析"
+    - "耐性機序"
+    - "サーベイランス"
+
+  # 様式1-1 ⑤研究の概要（180字以内、一般向け平易な表現）
+  summary: >-
+    薬剤耐性菌の世界的な増加は、感染症治療を困難にし、安全保障上の脅威となっている。
+    本研究では、次世代シーケンサーとAI技術を組み合わせた迅速な薬剤耐性菌検出システムを開発し、
+    耐性メカニズムの解明を通じて、新規対策の基盤を構築する。
+
+  # 様式1-1 ⑧タイプ / 様式6 G列
+  # 選択肢: S / A / C / D(S相当) / D(A相当) / D(C相当)
+  type: "A"  # 年間最大5200万円（直接経費4,000万円+間接経費30%）、最大3年
+
+  # 様式1-1 ⑥研究期間 / 様式6 N列
+  period_start: "R8"   # 令和8年度（2026年度、研究開始は12月以降）
+  period_end: "R10"    # 令和10年度（最大3か年度）
+  period_years: 3      # 様式6 N列用（研究期間の年数）
+
+  # 様式1-1 ⑧重複応募の有無
+  # 様式6 H列（委託事業と補助事業との重複の有無）
+  duplicate_application: false
+
+# ---------------------------------------------------------------------------
+# lead_institution: 代表研究機関情報
+# → 様式1-1 ⑨⑩の所属機関, 様式6 L/W/X/Y/Z列
+# ---------------------------------------------------------------------------
+lead_institution:
+  # 様式1-1 ⑨⑩の所属機関名 / 様式6 L列
+  name: "○○大学"
+
+  # 様式6 W列: 代表研究機関の種別
+  # 選択肢: 大学等 / 公的研究機関 / 公益法人等 / 企業等
+  type: "大学等"
+
+  # 様式6 X列: 中小企業に該当するか
+  is_sme: false
+
+  # 様式6 Y列: スタートアップに該当するか
+  is_startup: false
+
+  # 様式6 Z列: 大学発スタートアップの場合の大学名（該当しない場合は空文字）
+  university_origin: ""
+
+  # 所在地
+  address: "東京都○○区○○ 1-2-3"
+
+  # 全省庁統一資格等級（A/B/C/D）— SPEC.md §5 応募資格要件
+  procurement_grade: "A"
+
+  # 参考様式の署名者（委託契約の最終権限者）
+  authorized_signer:
+    name: "○○ ○○"       # 例: 学部長、契約担当部署の長
+    title: "○○学部長"
+
+# ---------------------------------------------------------------------------
+# sub_institutions: 分担研究機関情報
+# → 様式6 M/AA/AB/AC列, 様式2-1 Table 4
+# ---------------------------------------------------------------------------
+sub_institutions:
+  # 様式6 M列: 分担研究機関名（カンマ区切りで記入）
+  - name: "△△大学"
+    type: "大学等"
+    is_sme: false        # 様式6 AA列用
+    is_startup: false    # 様式6 AB列用
+    university_origin: ""  # 様式6 AC列用
+
+# ---------------------------------------------------------------------------
+# contacts: 連絡先情報
+# → 様式8 (Excel)
+# ---------------------------------------------------------------------------
+contacts:
+  # 様式8: 通知用メールアドレスリスト（最大10件）
+  # B3 = 研究代表者メール（必須）、B4〜B12 = 追加連絡先
+  emails:
+    - "pi@example.ac.jp"          # 研究代表者（様式8 B3 / 様式6 U列）
+    - "admin@example.ac.jp"       # 経理事務担当者
+    - "coinvestigator@example.jp" # 分担者
+
+# ---------------------------------------------------------------------------
+# budget: 予算情報
+# → 様式1-1 ⑦申請額, 様式2-1, 様式2-2, 様式6 O〜S列
+# ---------------------------------------------------------------------------
+budget:
+  # 間接経費率（様式2-1 備考「原則30%」）
+  # 大学・国立研究機関は0.3固定
+  # 公益法人・一般法人・民間企業は必要に応じて30%以下に設定可能（別紙2 §4）
+  indirect_rate: 0.3
+
+  # ---------------------------------------------------------------------------
+  # yearly: 年度別経費内訳
+  # → 様式2-1 Table 3（研究費見込額）, 様式1-1 ⑦申請額, 様式6 O〜S列
+  #
+  # 自動計算フィールド（YAMLには記載不要、スクリプト側で算出）:
+  #   物品費 = equipment + consumables（様式2-1 ア．物品費）
+  #   直接経費 = equipment + consumables + travel + personnel + other
+  #   間接経費 = 直接経費 × indirect_rate
+  #   合計 = 直接経費 + 間接経費（= 様式1-1 ⑦ / 様式6 O〜S列の値）
+  # ---------------------------------------------------------------------------
+  yearly:
+    # --- 1年目（R8 = 令和8年度） ---
+    - year: 1
+      equipment: 5000     # 設備備品費（千円）— 耐用年数1年以上 かつ 取得価格10万円以上
+      consumables: 3000   # 消耗品費（千円）— 上記以外の物品
+      travel: 1000        # 旅費（千円）
+      personnel: 8000     # 人件費・謝金（千円）
+      other: 3000         # その他（千円）— 消費税相当額を含む
+      # 直接経費計: 20,000千円、間接経費: 6,000千円、合計: 26,000千円
+
+    # --- 2年目（R9 = 令和9年度） ---
+    - year: 2
+      equipment: 3000
+      consumables: 5000
+      travel: 2000
+      personnel: 10000
+      other: 5000
+      # 直接経費計: 25,000千円、間接経費: 7,500千円、合計: 32,500千円
+
+    # --- 3年目（R10 = 令和10年度） ---
+    - year: 3
+      equipment: 2000
+      consumables: 5000
+      travel: 2000
+      personnel: 10000
+      other: 6000
+      # 直接経費計: 25,000千円、間接経費: 7,500千円、合計: 32,500千円
+
+  # ---------------------------------------------------------------------------
+  # by_institution: 機関ごとの年度別予算内訳
+  # → 様式2-1 Table 4（機関別研究費）
+  # 各セル: "合計を記載。うち、括弧内は間接経費。"
+  # ---------------------------------------------------------------------------
+  by_institution:
+    - institution: "○○大学"
+      yearly:
+        - year: 1
+          amount: 17500       # 直接経費合計（千円）— budget.details の institution 合算と一致させること
+        - year: 2
+          amount: 17500
+        - year: 3
+          amount: 17500
+
+    - institution: "△△大学"
+      yearly:
+        - year: 1
+          amount: 2500
+        - year: 2
+          amount: 7500
+        - year: 3
+          amount: 7500
+
+  # ---------------------------------------------------------------------------
+  # details: 品目レベル積算明細
+  # → 様式2-2（年度別研究費計画書、Tables 5〜9）
+  # 列構成: 項目(メーカー名・規格等) / 数量(単位) / 金額(千円) / 設置機関 / 使用目的
+  #
+  # category 選択肢: equipment / consumables / travel / personnel / other
+  # 注意事項（別紙2 §4）:
+  #   - 建物・構築物の購入は不可
+  #   - 汎用備品（PC等）は事業遂行に必要なもののみ
+  #   - 機器調達は購入 vs リース・レンタルで比較し安価な方法を採用
+  #   - 外国旅費は最低限のみ計上
+  #   - 各所要経費は支払の発生する年度に計上
+  # ---------------------------------------------------------------------------
+  details:
+    # === 1年目 ===
+    - year: 1
+      line_items:
+        # Ⅰ．物品費 — 1. 設備備品費
+        - category: equipment
+          name: "次世代シーケンサー（○○社、型番XXX）"
+          quantity: "1台"
+          amount: 5000
+          institution: "○○大学"
+          justification: "薬剤耐性遺伝子の全ゲノム解析に使用"
+
+        # Ⅰ．物品費 — 2. 消耗品費
+        - category: consumables
+          name: "シーケンスライブラリ調製キット"
+          quantity: "10セット"
+          amount: 1500
+          institution: "○○大学"
+          justification: "全ゲノム解析用サンプル調製"
+
+        - category: consumables
+          name: "培地・試薬類"
+          quantity: "一式"
+          amount: 1500
+          institution: "○○大学"
+          justification: "薬剤耐性菌の培養・感受性試験に使用"
+
+        # Ⅱ．人件費・謝金
+        - category: personnel
+          name: "研究補助員（ポスドク）"
+          quantity: "1名×12月"
+          amount: 6000
+          institution: "○○大学"
+          justification: "薬剤耐性菌の分離・同定およびゲノム解析の実施"
+
+        - category: personnel
+          name: "技術補助員（テクニシャン）"
+          quantity: "1名×12月"
+          amount: 2000
+          institution: "△△大学"
+          justification: "培養実験・データ整理の補助"
+
+        # Ⅲ．旅費
+        - category: travel
+          name: "国内出張旅費（研究打合せ・学会発表）"
+          quantity: "5回"
+          amount: 500
+          institution: "○○大学"
+          justification: "分担機関との研究打合せおよび成果発表"
+
+        - category: travel
+          name: "国内出張旅費（研究打合せ）"
+          quantity: "3回"
+          amount: 500
+          institution: "△△大学"
+          justification: "代表機関との研究打合せ"
+
+        # Ⅳ．その他
+        - category: other
+          name: "論文投稿料・英文校正費"
+          quantity: "一式"
+          amount: 500
+          institution: "○○大学"
+          justification: "研究成果の学術論文公表に必要"
+
+        - category: other
+          name: "クラウド計算機利用料"
+          quantity: "12月"
+          amount: 2000
+          institution: "○○大学"
+          justification: "大規模ゲノムデータの解析処理"
+
+        - category: other
+          name: "消費税相当額"
+          quantity: "一式"
+          amount: 500
+          institution: "○○大学"
+          justification: ""
+
+    # === 2年目 ===
+    - year: 2
+      line_items:
+        - category: equipment
+          name: "自動培養装置（○○社、型番YYY）"
+          quantity: "1台"
+          amount: 3000
+          institution: "○○大学"
+          justification: "多検体の薬剤感受性試験の自動化"
+
+        - category: consumables
+          name: "シーケンスライブラリ調製キット"
+          quantity: "20セット"
+          amount: 2500
+          institution: "○○大学"
+          justification: "解析サンプル数拡大に伴う消耗品"
+
+        - category: consumables
+          name: "培地・試薬類"
+          quantity: "一式"
+          amount: 2500
+          institution: "△△大学"
+          justification: "薬剤耐性菌の培養・感受性試験"
+
+        - category: personnel
+          name: "研究補助員（ポスドク）"
+          quantity: "1名×12月"
+          amount: 6000
+          institution: "○○大学"
+          justification: "ゲノム解析および耐性機序の解明"
+
+        - category: personnel
+          name: "研究補助員"
+          quantity: "1名×12月"
+          amount: 4000
+          institution: "△△大学"
+          justification: "薬剤感受性試験の実施・データ解析"
+
+        - category: travel
+          name: "国内出張旅費（研究打合せ・学会発表）"
+          quantity: "5回"
+          amount: 1000
+          institution: "○○大学"
+          justification: "分担機関との研究打合せおよび成果発表"
+
+        - category: travel
+          name: "国内出張旅費"
+          quantity: "3回"
+          amount: 1000
+          institution: "△△大学"
+          justification: "代表機関との研究打合せ"
+
+        - category: other
+          name: "論文投稿料・英文校正費"
+          quantity: "一式"
+          amount: 1000
+          institution: "○○大学"
+          justification: "研究成果の学術論文公表"
+
+        - category: other
+          name: "クラウド計算機利用料"
+          quantity: "12月"
+          amount: 3000
+          institution: "○○大学"
+          justification: "大規模ゲノムデータ解析・機械学習モデル構築"
+
+        - category: other
+          name: "消費税相当額"
+          quantity: "一式"
+          amount: 1000
+          institution: "○○大学"
+          justification: ""
+
+    # === 3年目 ===
+    - year: 3
+      line_items:
+        - category: equipment
+          name: "解析用ワークステーション（○○社、型番ZZZ）"
+          quantity: "1台"
+          amount: 2000
+          institution: "○○大学"
+          justification: "AI解析モデルのローカル実行環境"
+
+        - category: consumables
+          name: "シーケンスライブラリ調製キット"
+          quantity: "20セット"
+          amount: 2500
+          institution: "○○大学"
+          justification: "検証用サンプルの解析"
+
+        - category: consumables
+          name: "培地・試薬類"
+          quantity: "一式"
+          amount: 2500
+          institution: "△△大学"
+          justification: "薬剤耐性菌の培養・感受性試験"
+
+        - category: personnel
+          name: "研究補助員（ポスドク）"
+          quantity: "1名×12月"
+          amount: 6000
+          institution: "○○大学"
+          justification: "検出システムの統合・検証"
+
+        - category: personnel
+          name: "研究補助員"
+          quantity: "1名×12月"
+          amount: 4000
+          institution: "△△大学"
+          justification: "検証実験の実施・データ整理"
+
+        - category: travel
+          name: "国内出張旅費（研究打合せ・学会発表）"
+          quantity: "5回"
+          amount: 1000
+          institution: "○○大学"
+          justification: "分担機関との打合せおよび最終成果発表"
+
+        - category: travel
+          name: "国内出張旅費"
+          quantity: "3回"
+          amount: 1000
+          institution: "△△大学"
+          justification: "代表機関との研究打合せ"
+
+        - category: other
+          name: "論文投稿料・英文校正費"
+          quantity: "一式"
+          amount: 1500
+          institution: "○○大学"
+          justification: "最終成果の学術論文公表"
+
+        - category: other
+          name: "クラウド計算機利用料"
+          quantity: "12月"
+          amount: 3500
+          institution: "○○大学"
+          justification: "大規模検証解析の計算リソース"
+
+        - category: other
+          name: "消費税相当額"
+          quantity: "一式"
+          amount: 1000
+          institution: "○○大学"
+          justification: ""
