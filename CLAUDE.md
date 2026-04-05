@@ -41,6 +41,8 @@ med-resist-grant/
 ├── docs/
 │   ├── prompts.md               # 実装プロンプト集（Step 8〜）
 │   ├── prompts_trash.md         # 完了済みプロンプト（Steps 0-7 アーカイブ）
+│   ├── step4plan.md             # 様式1-2/1-3 統合実装計画
+│   ├── template_analysis.md     # テンプレート構造解析レポート（Prompt 9-1 成果物）
 │   └── __archives/
 ├── jank/                        # 一時ファイル (gitignored)
 ├── main/
@@ -57,6 +59,7 @@ med-resist-grant/
 │   │   ├── fill_forms.py        # テーブルフォーム記入
 │   │   ├── fill_security.py     # セキュリティ関連記入
 │   │   ├── build_narrative.sh   # Pandoc変換
+│   │   ├── inject_narrative.py  # 様式1-2/1-3本文をテンプレートに挿入 (OOXML)
 │   │   └── output/
 │   ├── step03_excel/            # Excel文書生成
 │   │   ├── fill_excel.py        # Excel記入

@@ -63,8 +63,11 @@
                                ├──→ [step02_docx/fill_security.py] → 別紙5,別添.docx
                                │
 [main/step01_narrative/*.md] ──┤
-                               ├──→ [step02_docx/build_narrative.sh] → 様式1-2,1-3.docx
-                               │         (pandoc)
+                               ├──→ [step02_docx/build_narrative.sh] → 様式1-2,1-3.docx (中間)
+                               │         (pandoc)                          │
+                               │                                          ↓
+                               │    [step02_docx/inject_narrative.py] ← 様式1-2,1-3.docx
+                               │         (OOXML ZIP merge)       → youshiki1_5_filled.docx に統合
 [main/00_setup/*.yaml]  ──────┤
                                ├──→ [step03_excel/fill_excel.py] ──→ 様式6,7,8.xlsx
 [data/source/*.xlsx]   ───────┘
@@ -114,7 +117,8 @@
   - `fill_forms.py`: python-docx で様式1-1, 2-1〜4-2 のテーブルセルにデータを書き込み
   - `fill_security.py`: python-docx で別紙5, 別添のテーブルにデータを書き込み
   - `build_narrative.sh`: pandoc で Markdown → docx 変換（様式1-2, 1-3）
-- **出力**: `step02_docx/output/*.docx`
+  - `inject_narrative.py`: OOXML ZIP-level merge で様式1-2/1-3本文を youshiki1_5_filled.docx に挿入
+- **出力**: `step02_docx/output/*.docx`（youshiki1_2/1_3_narrative.docx は中間ファイル）
 
 #### Step 03: Excel文書生成 (step03_excel/)
 
@@ -125,7 +129,7 @@
 #### Step 04: パッケージング (step04_package/)
 
 - **入力**: Step 02-03 の出力
-- **処理**: ファイル収集、バリデーション、サイズチェック
+- **処理**: ファイル収集、バリデーション、サイズチェック。youshiki1_2_narrative.docx / youshiki1_3_narrative.docx は中間ファイルのため最終パッケージから除外
 - **出力**: `step04_package/output/` に提出用ファイル一式
 
 ### 2.3 E2Eテスト (data/dummy/)
@@ -152,14 +156,14 @@ RUNNER=docker DATA_DIR=data/dummy SETUP_DIR=data/dummy ./scripts/build.sh valida
 
 | 出力ファイル | 内容 | 後処理 |
 |-------------|------|--------|
-| youshiki1_5_filled.docx | 様式1-1〜5 + 参考様式（テーブル記入済） | Windows で PDF化 |
-| youshiki1_2_narrative.docx | 様式1-2 本文（Pandoc生成） | Windows側で個別PDF化 → PDF結合 |
-| youshiki1_3_narrative.docx | 様式1-3 本文（Pandoc生成） | 同上 |
+| youshiki1_5_filled.docx | 様式1-1〜5 + 参考���式 + 様式1-2/1-3本文（inject済） | Windows で PDF化 |
+| youshiki1_2_narrative.docx | 様式1-2 本文（Pandoc生成、中間ファイル） | inject_narrative.py で youshiki1_5_filled.docx に統合 |
+| youshiki1_3_narrative.docx | 様式1-3 本文（同上） | 同上 |
 | besshi5_filled.docx | 別紙5（テーブル記入済） | Windows で PDF化 |
 | betten_NN_romanized.docx | 別添（研究者ごと、例: betten_01_yamada.docx） | Windows で PDF化 |
 
 ※ 様式1-2, 1-3の統合方法: OOXMLレベル（lxml/ElementTree）で body 要素を
-テンプレートの該当セクションに直接挿入する（docs/step4plan.md 参照）。
+テンプレートの該当セクションに直接挿入する（docs/step4plan.md, docs/template_analysis.md 参照）。
 python-docx 高レベルAPIでの文書結合は書式崩壊リスクが高いため採用しないが、
 ZIPアーカイブ直接操作によるOOXML要素挿入は、リレーションシップ・スタイル・
 numbering の個別制御が可能なため採用する。フォールバック: Windows COM結合 or PDF結合。
