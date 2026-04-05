@@ -115,8 +115,8 @@ for cmd in rclone jq curl; do
 done
 
 # rclone 接続チェック
-if ! timeout 15 rclone about "$COLLAB_REMOTE" &>/dev/null; then
-    log_error "rclone リモート '$COLLAB_REMOTE' に接続できません"
+if ! timeout 15 rclone cat "${COLLAB_DEST}/trigger.txt" &>/dev/null; then
+    log_error "rclone リモート '$COLLAB_DEST' に接続できません"
     log_error "  rclone config reconnect ${COLLAB_REMOTE} を実行してください"
     exit 1
 fi
@@ -356,6 +356,7 @@ while true; do
             remaining=$((COLLAB_COOLDOWN_SEC - elapsed))
             log_warn "クールダウン中（残り ${remaining}秒）"
             notify_gchat "$(printf '\xe2\x8f\xb3') クールダウン中です（残り ${remaining}秒）。しばらくお待ちください"
+            reset_trigger
             release_lock
             sleep "$COLLAB_POLL_SEC"
             continue

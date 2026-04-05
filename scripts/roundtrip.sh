@@ -129,8 +129,8 @@ phase_push() {
         log_error "rclone がインストールされていません"
         return 1
     fi
-    if ! timeout 15 rclone about "$GDRIVE_REMOTE" &>/dev/null; then
-        log_error "rclone リモート '$GDRIVE_REMOTE' に接続できません"
+    if ! timeout 15 rclone lsf "${GDRIVE_DEST}/" --max-depth 1 --dirs-only &>/dev/null; then
+        log_error "rclone リモ���ト '$GDRIVE_DEST' に接続できません"
         log_error "  rclone config reconnect ${GDRIVE_REMOTE} を実行してください"
         exit 1
     fi
