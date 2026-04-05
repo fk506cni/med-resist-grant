@@ -221,6 +221,41 @@ services:
 | Google Drive | ファイル同期 | rclone copy |
 | e-Rad | 申請提出 | Web UI |
 
+### 2.4 共同執筆環境 (Step 8)
+
+共同研究者（Linux/Git環境なし）がGoogle Drive経由でドラフト編集・ビルドトリガーできる仕組み。
+
+#### 共有フォルダ構成
+
+```
+gdrive:share_temp/med-resist-collab/
+├── drafts/          # 共同研究者が編集するMarkdown本文
+│   ├── youshiki1_2.md
+│   ├── youshiki1_3.md
+│   └── figs/
+├── trigger.txt      # "build" と記入でビルド発火、完了後 "IDLE" に戻る
+├── status.txt       # 現在の状態（スクリプトが自動更新）
+└── products/        # 成果物配信先（PDF/docx/xlsx）
+```
+
+#### collab_watcher.sh フロー
+
+```
+[trigger.txt == "build"]
+        │
+        ├── Phase 1: 双方向ドラフト同期 (rclone copy --update)
+        ├── Phase 1.5: ソースコードバックアップ (git archive → zip → gdrive:tmp/)
+        ├── Phase 2: ビルド (build.sh)
+        ├── Phase 3: roundtrip (roundtrip.sh --skip-build)
+        ├── Phase 4: 成果物配信 (products/ → 共有フォルダ)
+        └── Phase 5: 完了通知 + status.txt 更新
+```
+
+- **通知**: 各フェーズで Google Chat Webhook 経由通知（jq でJSON構築）
+- **ロック**: `/tmp/collab_watcher.lock` でビルド中の重複防止
+- **クールダウン**: `COLLAB_COOLDOWN_SEC`（デフォルト120秒）以内の再トリガーを抑制
+- **設定**: `.env` で Webhook URL、rcloneパス、ポーリング間隔等を管理
+
 ---
 
 ## 5. 制約・前提条件

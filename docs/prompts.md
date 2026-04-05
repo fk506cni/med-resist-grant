@@ -237,17 +237,17 @@ rcloneパス: gdrive:share_temp/med-resist-collab
 
 #### 完了チェック
 
-- [ ] .env が作成され .gitignore に追加されている
-- [ ] .env.example が作成されている（Webhook URL は空欄のプレースホルダ）
-- [ ] `./scripts/collab_watcher.sh` が起動し、ポーリングループに入る
-- [ ] trigger.txt に "build" を書くとビルドが発火する
-- [ ] 双方向ドラフト同期が動作する（Linux↔Drive の --update ベース）
-- [ ] ソースコードバックアップ zip が gdrive:tmp/med-resist-grant/src/ に作成される
-- [ ] 各フェーズで Google Chat に通知が届く（jq によるJSON構築）
-- [ ] ビルド失敗時にエラー通知が届き、status.txt が「エラー」になる
-- [ ] クールダウン期間内の再トリガーが無視される
-- [ ] 成果物が共有フォルダの products/ に配信される
-- [ ] trigger.txt クリア後の状態が "IDLE"（ゼロバイトではない）
+- [x] .env が作成され .gitignore に追加されている
+- [x] .env.example が作成されている（Webhook URL は空欄のプレースホルダ）
+- [x] `./scripts/collab_watcher.sh` が起動し、ポーリングループに入る
+- [x] trigger.txt に "build" を書くとビルドが発火する
+- [x] 双方向ドラフト同期が動作する（Linux↔Drive の --update ベース）
+- [x] ソースコードバックアップ zip が gdrive:tmp/med-resist-grant/src/ に作成される
+- [x] 各フェーズで Google Chat に通知が届く（jq によるJSON構築）
+- [x] ビルド失敗時にエラー通知が届き、status.txt が「エラー」になる
+- [x] クールダウン期間内の再トリガーが無視される
+- [x] 成果物が共有フォルダの products/ に配信される
+- [x] trigger.txt クリア後の状態が "IDLE"（ゼロバイトではない）
 
 ---
 

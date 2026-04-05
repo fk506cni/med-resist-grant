@@ -19,6 +19,8 @@ med-resist-grant/
 ├── CLAUDE.md                    # AI アシスタント向けコンテキスト（本ファイル）
 ├── SPEC.md                      # 技術仕様書
 ├── README.md                    # プロジェクト概要
+├── .env                         # 環境変数 (gitignored, Webhook URL・rcloneパス等)
+├── .env.example                 # .env テンプレート（Webhook URL 空欄）
 ├── scripts/build.sh             # ビルドスクリプト
 ├── __archives/                  # 退避先 (gitignored)
 ├── data/
@@ -70,7 +72,7 @@ med-resist-grant/
     ├── roundtrip.sh             # ビルド→push→PDF待ち→pull 一括実行
     ├── create_package.sh        # パッケージング・バリデーション (成果物集約・サイズチェック・チェックリスト)
     ├── sync_gdrive.sh           # Google Drive同期 (rclone copy)
-    ├── collab_watcher.sh        # 共同執筆トリガー監視 (Step 8 で作成予定)
+    ├── collab_watcher.sh        # 共同執筆トリガー監視 (Google Drive polling → ビルド → 成果物配信 → Google Chat通知)
     ├── collab/                  # 共同執筆用リソース (Step 8 で作成予定)
     │   └── README_使い方.md     # 共同研究者向け使い方説明
     └── windows/                 # Windows側PDF変換スクリプト

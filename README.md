@@ -132,6 +132,7 @@ RUNNER=docker DATA_DIR=data/dummy SETUP_DIR=data/dummy ./scripts/build.sh
 | `scripts/validate_yaml.py` | YAMLバリデーション（必須フィールド、予算整合性、エフォート率等） |
 | `scripts/roundtrip.sh` | ビルド→push→PDF待ち→pull 一括実行 |
 | `scripts/sync_gdrive.sh` | Google Drive同期 (rclone copy, push/pull) |
+| `scripts/collab_watcher.sh` | 共同執筆トリガー監視（Google Drive polling → 自動ビルド → 成果物配信 → Google Chat通知） |
 | `scripts/create_package.sh` | パッケージング・バリデーション（成果物集約、サイズチェック、チェックリスト出力） |
 | `data/dummy/generate_stubs.py` | E2Eテスト用スタブ docx/xlsx 生成 |
 | `scripts/archive_message.sh` | message.md をタイムスタンプ付きで jank/ に退避 |
