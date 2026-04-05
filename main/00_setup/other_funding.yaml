@@ -18,71 +18,67 @@
 #
 # 注意:
 #   - Row 1 は「本研究課題」として自動記入される（fill_forms.py側で処理）
-#     → config.yaml, researchers.yaml の値を使用
 #   - Row 2〜5 に entries の内容を順に記入（最大4件）
-#   - 6件以上ある場合は行追加が必要（別紙2 §4: 「行が足りない場合は行を追加」）
 #   - 空リスト（entries: []）= 他制度応募なし → Row 2以降は空欄
 # =============================================================================
 
 # ---------------------------------------------------------------------------
-# pi_funding: 研究代表者の他制度応募・受入状況
+# pi_funding: 研究代表者（福山 啓太）の他制度応募・受入状況
 # → 様式3-1（r08youshiki1_5.docx Table 10）
 # ---------------------------------------------------------------------------
 pi_funding:
   entries:
-    - status: "受入中"          # "応募中" or "受入中"
-      program_name: "科学研究費助成事業 基盤研究(B)"  # 制度名
-      period: "R5〜R8"          # 研究期間
-      agency: "日本学術振興会"   # 配分機関等名
-      project_title: "○○に関する研究"  # 研究課題名
-      role: "代表"              # 代表 or 分担
-      budget: 5000              # 本人の受入れ予算額（千円）
-      total_budget: 15000       # 研究課題全体の予算額（千円）— Col 6 括弧内
-      effort_percent: 20        # 令和8年度のエフォート(%)
+    - status: "受入中"
+      program_name: "○○"
+      period: "○○〜○○"
+      agency: "○○"
+      project_title: "○○に関する研究"
+      role: "○○"
+      budget: 0
+      total_budget: 0
+      effort_percent: 0
       difference: >-
-        科研費基盤Bでは○○の基礎的メカニズム解明を目的としているのに対し、
-        本課題では迅速検出システムの開発に焦点を当てており、研究目的・方法が異なる。
+        ○○では○○を目的としているのに対し、本課題ではサイバー攻撃時の
+        地域医療提供体制のシミュレーション技術開発に焦点を当てており、
+        研究目的・方法が異なる。
       confidential: false
-      # ※ confidential: true の場合、配分機関等名と予算額を記入しないことができる
-      #   （別紙2 §4【様式3-1】: 秘密保持契約等のやむを得ない事情がある場合）
-
-    # --- 追加エントリのテンプレート ---
-    # - status: "応募中"
-    #   program_name: ""
-    #   period: ""
-    #   agency: ""
-    #   project_title: ""
-    #   role: "代表"
-    #   budget: 0
-    #   total_budget: 0
-    #   effort_percent: 0
-    #   difference: ""
-    #   confidential: false
 
 # ---------------------------------------------------------------------------
 # co_investigator_funding: 各研究分担者の他制度応募・受入状況
 # → 様式3-2（r08youshiki1_5.docx Table 11）
-#
-# researcher_name は researchers.yaml の co_investigators[].name_ja と一致させること。
-# 分担者ごとに1つのエントリを持ち、構造は pi_funding と同一。
 # ---------------------------------------------------------------------------
 co_investigator_funding:
-  - researcher_name: "△△ △△"
+  - researcher_name: "黒田 知宏"
     entries:
       - status: "受入中"
-        program_name: "科学研究費助成事業 若手研究"
-        period: "R6〜R9"
-        agency: "日本学術振興会"
+        program_name: "○○"
+        period: "○○〜○○"
+        agency: "○○"
         project_title: "○○に関する研究"
-        role: "代表"
-        budget: 3000
-        total_budget: 5000
-        effort_percent: 15
+        role: "○○"
+        budget: 0
+        total_budget: 0
+        effort_percent: 0
         difference: >-
-          若手研究では○○の臨床的側面に焦点を当てているのに対し、
-          本課題では薬剤感受性試験法の高度化を担当しており、研究内容が異なる。
+          ○○では○○に焦点を当てているのに対し、本課題では研究設計の
+          助言を担当しており、研究内容が異なる。
         confidential: false
 
-  # --- 追加分担者のテンプレート ---
-  # - researcher_name: "○○ ○○"
-  #   entries: []  # 該当なしの場合は空リスト
+  - researcher_name: "○○ ○○"
+    entries: []  # 要確認
+
+  - researcher_name: "楠田 佳緒"
+    entries:
+      - status: "受入中"
+        program_name: "○○"
+        period: "○○〜○○"
+        agency: "○○"
+        project_title: "○○に関する研究"
+        role: "○○"
+        budget: 0
+        total_budget: 0
+        effort_percent: 0
+        difference: >-
+          ○○では○○を対象としているのに対し、本課題では医療インフラの
+          連関分析・シミュレーション技術開発を担当しており、対象領域が異なる。
+        confidential: false
