@@ -5,10 +5,11 @@
 #   ./scripts/build.sh [SUBCOMMAND...]
 #
 # Subcommands:
-#   (なし)      全ステップ実行（validate + forms + narrative + excel + security）
+#   (なし)      全ステップ実行（validate + forms + narrative + inject + security + excel）
 #   validate   YAMLバリデーションのみ
 #   forms      テーブルフォーム記入 (step02_docx/fill_forms.py)
 #   narrative  Markdown→docx変換 (step02_docx/build_narrative.sh)
+#   inject     ナラティブ挿入 (step02_docx/inject_narrative.py)
 #   security   セキュリティ文書記入 (step02_docx/fill_security.py)
 #   excel      Excel記入 (step03_excel/fill_excel.py)
 #   package    パッケージング (scripts/create_package.sh)
@@ -140,6 +141,48 @@ build_narrative() {
         RESULTS[narrative]="OK"
     else
         RESULTS[narrative]="FAIL"
+        return 1
+    fi
+}
+
+build_inject() {
+    local script="main/step02_docx/inject_narrative.py"
+    if [[ ! -f "$script" ]]; then
+        RESULTS[inject]="SKIP"
+        echo "SKIP: $script が未作成です"
+        return
+    fi
+    local template="main/step02_docx/output/youshiki1_5_filled.docx"
+    local narr12="main/step02_docx/output/youshiki1_2_narrative.docx"
+    local narr13="main/step02_docx/output/youshiki1_3_narrative.docx"
+
+    # Fallback: DATA_DIR にnarrative stubがあれば使用（E2Eテスト用）
+    if [[ ! -f "$narr12" && -f "$DATA_DIR/youshiki1_2_narrative.docx" ]]; then
+        narr12="$DATA_DIR/youshiki1_2_narrative.docx"
+    fi
+    if [[ ! -f "$narr13" && -f "$DATA_DIR/youshiki1_3_narrative.docx" ]]; then
+        narr13="$DATA_DIR/youshiki1_3_narrative.docx"
+    fi
+
+    if [[ ! -f "$template" ]]; then
+        RESULTS[inject]="FAIL"
+        echo "FAIL: $template が見つかりません（forms ステップを先に実行してください）" >&2
+        return 1
+    fi
+    if [[ ! -f "$narr12" || ! -f "$narr13" ]]; then
+        RESULTS[inject]="FAIL"
+        echo "FAIL: narrative docx が見つかりません（narrative ステップを先に実行してください）" >&2
+        return 1
+    fi
+    echo "=== inject: ナラティブ挿入 ==="
+    if run_python "$script" \
+        --template "$template" \
+        --youshiki12 "$narr12" \
+        --youshiki13 "$narr13" \
+        --output "$template"; then
+        RESULTS[inject]="OK"
+    else
+        RESULTS[inject]="FAIL"
         return 1
     fi
 }
@@ -293,6 +336,7 @@ run_step() {
         validate)  build_validate ;;
         forms)     build_forms ;;
         narrative) build_narrative ;;
+        inject)    build_inject ;;
         security)  build_security ;;
         excel)     build_excel ;;
         package)   build_package ;;
@@ -300,7 +344,7 @@ run_step() {
         check)     do_check ;;
         *)
             echo "ERROR: 不明なサブコマンド: $step" >&2
-            echo "  有効なサブコマンド: validate, forms, narrative, security, excel, package, clean, check" >&2
+            echo "  有効なサブコマンド: validate, forms, narrative, inject, security, excel, package, clean, check" >&2
             exit 1
             ;;
     esac
@@ -314,7 +358,7 @@ echo ""
 
 ensure_docker_image
 
-ALL_STEPS=(validate forms narrative security excel)
+ALL_STEPS=(validate forms narrative inject security excel)
 
 for target in "${TARGETS[@]}"; do
     if [[ "$target" == "all" ]]; then

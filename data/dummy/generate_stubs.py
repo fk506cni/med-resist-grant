@@ -56,6 +56,19 @@ def create_youshiki1_5():
 
     doc.add_paragraph("")  # separator
 
+    # -- 様式1-2 セクション（inject_narrative.py が検出するマーカー） --
+    doc.add_paragraph("（様式１－２）")
+    doc.add_paragraph("１．研究目的")
+    doc.add_paragraph("ここに記載してください")
+
+    # -- 様式1-3 セクション --
+    doc.add_paragraph("（様式１－３）")
+    doc.add_paragraph("（１）研究概要")
+    doc.add_paragraph("ここに記載してください")
+
+    # -- 様式2-1 セクション --
+    doc.add_paragraph("（様式２－１）")
+
     # -- 様式2-1 費目内訳: 9r×7c --
     tbl = _add_table(doc, 9, 7)
     tbl.cell(1, 0).text = "ア．物品費"  # identify as 2-1
@@ -343,6 +356,39 @@ def create_youshiki8():
 
 
 # ============================================================================
+# Narrative stubs — inject_narrative.py のE2Eテスト用
+# ============================================================================
+
+def create_narrative_stubs():
+    """Create minimal narrative docx stubs for inject_narrative.py testing.
+
+    Each stub contains: heading, body paragraph, and a table.
+    """
+    for name, heading, body_text in [
+        ("youshiki1_2_narrative.docx",
+         "1. 研究目的（ダミー）",
+         "これはE2Eテスト用のダミー本文です。様式1-2の研究計画詳細がここに挿入されます。"),
+        ("youshiki1_3_narrative.docx",
+         "(1) 研究概要（ダミー）",
+         "これはE2Eテスト用のダミー本文です。様式1-3の追加説明事項がここに挿入されます。"),
+    ]:
+        doc = Document()
+        doc.add_heading(heading, level=1)
+        doc.add_paragraph(body_text)
+        tbl = doc.add_table(rows=2, cols=3)
+        tbl.cell(0, 0).text = "項目"
+        tbl.cell(0, 1).text = "内容"
+        tbl.cell(0, 2).text = "備考"
+        tbl.cell(1, 0).text = "ダミーデータ"
+        tbl.cell(1, 1).text = "テスト用"
+        tbl.cell(1, 2).text = "inject_narrative.py 検証"
+
+        out = DUMMY_DIR / name
+        doc.save(str(out))
+        print(f"  ✓ {out.name}")
+
+
+# ============================================================================
 # Main
 # ============================================================================
 
@@ -352,6 +398,7 @@ def main():
     create_youshiki1_5()
     create_besshi5()
     create_betten()
+    create_narrative_stubs()
     create_youshiki6()
     create_youshiki7()
     create_youshiki8()

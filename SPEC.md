@@ -136,7 +136,7 @@
 
 `data/source/` の実ファイルがなくてもパイプライン全体の動作確認が可能。
 
-- **ダミーデータ**: `data/dummy/` に YAML 4ファイル + スタブ docx/xlsx 6ファイル
+- **ダミーデータ**: `data/dummy/` に YAML 4ファイル + スタブ docx/xlsx 6ファイル + narrative docx 2ファイル
 - **スタブ生成**: `data/dummy/generate_stubs.py` が python-docx / openpyxl で最小限のテーブル構造を持つスタブを生成
 - **実行方法**: `DATA_DIR` / `SETUP_DIR` 環境変数で build.sh のデータパスを切替
 

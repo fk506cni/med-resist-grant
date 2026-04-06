@@ -38,10 +38,9 @@ file_size() {
 # --- 必須ファイルリスト ---
 
 # 固定名ファイル（docx）
+# ※ youshiki1_2/1_3_narrative.docx は youshiki1_5_filled.docx に統合済み
 REQUIRED_DOCX=(
     "youshiki1_5_filled.docx"
-    "youshiki1_2_narrative.docx"
-    "youshiki1_3_narrative.docx"
     "besshi5_filled.docx"
 )
 
@@ -209,28 +208,13 @@ echo "  提出チェックリスト"
 echo "=========================================="
 echo ""
 
-# 様式1-1〜5（1つのdocxに統合済み）
+# 様式1-1〜5（様式1-2/1-3本文をinject済み）
 if [[ -f "$PACKAGE_OUTPUT/youshiki1_5_filled.docx" ]]; then
     sz=$(human_size "$(file_size "$PACKAGE_OUTPUT/youshiki1_5_filled.docx")")
     echo "  ☑ 様式1-1〜5:  youshiki1_5_filled.docx ($sz)"
+    echo "     （様式1-2/1-3本文 統合済み）"
 else
     echo "  ☐ 様式1-1〜5:  youshiki1_5_filled.docx (未生成)"
-fi
-
-# 様式1-2 narrative
-if [[ -f "$PACKAGE_OUTPUT/youshiki1_2_narrative.docx" ]]; then
-    sz=$(human_size "$(file_size "$PACKAGE_OUTPUT/youshiki1_2_narrative.docx")")
-    echo "  ☑ 様式1-2本文: youshiki1_2_narrative.docx ($sz)"
-else
-    echo "  ☐ 様式1-2本文: youshiki1_2_narrative.docx (未生成)"
-fi
-
-# 様式1-3 narrative
-if [[ -f "$PACKAGE_OUTPUT/youshiki1_3_narrative.docx" ]]; then
-    sz=$(human_size "$(file_size "$PACKAGE_OUTPUT/youshiki1_3_narrative.docx")")
-    echo "  ☑ 様式1-3本文: youshiki1_3_narrative.docx ($sz)"
-else
-    echo "  ☐ 様式1-3本文: youshiki1_3_narrative.docx (未生成)"
 fi
 
 # 別紙5
@@ -283,7 +267,9 @@ fi
 
 echo ""
 echo "  --- 手動確認項目 ---"
-echo "  ☐ Windows側PDF変換（様式1-1〜5 + 参考様式 → 1つのPDFに結合）"
+echo "  ☐ Windows側PDF変換（youshiki1_5_filled.docx → PDF）"
+echo "  ☐ PDF確認: 様式1-2/1-3の本文が挿入されていること"
+echo "  ☐ PDF確認: ページ番号が通しで振られていること"
 echo "  ☐ e-Radアップロード（提出期限: 2026-05-20 正午）"
 echo ""
 

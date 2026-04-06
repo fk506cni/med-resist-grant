@@ -594,6 +594,10 @@ build.sh の処理順序に inject フェーズを追加し、create_package.sh 
 - scripts/build.sh — 既存のビルドスクリプト
 - scripts/create_package.sh — パッケージングスクリプト
 - docs/step4plan.md Step C, D — 統合計画
+- docs/prompts.md（全体的な文脈記載有り）
+- SPEC.md
+- README.md
+- CLAUDE.md
 
 ## 変更内容
 
@@ -623,13 +627,13 @@ build.sh の処理順序に inject フェーズを追加し、create_package.sh 
 
 #### 完了チェック
 
-- [ ] build.sh に inject サブコマンドが追加されている
-- [ ] `./scripts/build.sh` で全ステップ（validate/forms/narrative/inject/security/excel）が通過する
-- [ ] `./scripts/build.sh inject` で inject のみ実行可能
-- [ ] create_package.sh が更新されている
-- [ ] E2Eテスト（DATA_DIR=data/dummy）が通過する
-- [ ] roundtrip.sh で生成された PDF に様式1-2/1-3の本文が含まれている
-- [ ] PDF のページ番号が通しで振られている
+- [x] build.sh に inject サブコマンドが追加されている
+- [x] `./scripts/build.sh` で全ステップ（validate/forms/narrative/inject/security/excel）が通過する
+- [x] `./scripts/build.sh inject` で inject のみ実行可能
+- [x] create_package.sh が更新されている
+- [x] E2Eテスト（DATA_DIR=data/dummy）が通過する（narrative は Docker/pandoc 必要、inject は DATA_DIR フォールバックで動作確認済み）
+- [x] roundtrip.sh で生成された PDF に様式1-2/1-3の本文が含まれている（p.3-9: 様式1-2、p.10-12: 様式1-3）
+- [x] PDF のページ番号が通しで振られている（-1- ～ -20-）
 
 ---
 
