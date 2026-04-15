@@ -378,18 +378,18 @@ inject_narrative.py の NSMAP を「コピーで可」だが、**コピー後に
 
 #### 完了チェック
 
-- [ ] `filters/textbox-minimal.lua` が作成され、100 行以下の最小構成
-- [ ] Lua フィルタに **Pass 1（`.svg → .svg.png` リネーム）** が含まれる
-- [ ] `main/step02_docx/wrap_textbox.py` が作成され、booktabs / relocate / resize_tables
+- [x] `filters/textbox-minimal.lua` が作成され、100 行以下の最小構成
+- [x] Lua フィルタに **Pass 1（`.svg → .svg.png` リネーム）** が含まれる
+- [x] `main/step02_docx/wrap_textbox.py` が作成され、booktabs / relocate / resize_tables
       部分が削除済み
-- [ ] wrap_textbox.py の NSMAP に `asvg` と `a14` が含まれる
-- [ ] `embed_svg_native` が `source_md` 親ディレクトリ基準で SVG パスを resolve し、
+- [x] wrap_textbox.py の NSMAP に `asvg` と `a14` が含まれる
+- [x] `embed_svg_native` が `source_md` 親ディレクトリ基準で SVG パスを resolve し、
       未検出時は `FileNotFoundError` を上げる
-- [ ] CLI 引数に `--docpr-id-base`（既定 3000）が追加され、`build_textbox_paragraph`
+- [x] CLI 引数に `--docpr-id-base`（既定 3000）が追加され、`build_textbox_paragraph`
       内の docPr@id 採番に反映される
-- [ ] 既存の youshiki1_2.md を Lua フィルタ経由で pandoc 変換しても崩れない
-- [ ] `.textbox` ブロック未使用時に wrap_textbox.py が副作用なく終了する
-- [ ] ホスト Python / ホスト pandoc を使っていない（Docker 経由のみ）
+- [x] 既存の youshiki1_2.md を Lua フィルタ経由で pandoc 変換しても崩れない
+- [x] `.textbox` ブロック未使用時に wrap_textbox.py が副作用なく終了する
+- [x] ホスト Python / ホスト pandoc を使っていない（Docker 経由のみ）
 
 ---
 
