@@ -48,11 +48,12 @@
 | Step 5 | ビルド統合・パッケージング | 完了 | main/step04_package/ + scripts/build.sh |
 | Step 6 | Google Drive同期設定 | 完了 | scripts/sync_gdrive.sh, scripts/roundtrip.sh |
 | Step 7 | Windows側Word修復・PDF変換 | 完了 | scripts/windows/ |
-| **Step 8** | **共同執筆環境** | 完了 | **scripts/collab_watcher.sh** |
-| **Step 9** | **様式1-2/1-3 統合（ナラティブ挿入）** | 進行中 | **main/step02_docx/inject_narrative.py** |
+| Step 8 | 共同執筆環境 | 完了 | scripts/collab_watcher.sh |
+| Step 9 | 様式1-2/1-3 統合（ナラティブ挿入） | 完了 | main/step02_docx/inject_narrative.py |
+| **Step 10** | **図表挿入（Mermaid→SVG + テキストボックス）** | 計画中 | **docker/mermaid-svg/, filters/textbox-minimal.lua, main/step02_docx/wrap_textbox.py** |
 
-※ Steps 0-7 のプロンプト詳細は `docs/prompts_trash.md` に退避済み
-※ Step 8 の完了チェックは本ファイル下部の Prompt 8-1〜8-3 を参照
+※ Steps 0-9 のプロンプト詳細は `docs/prompts_trash.md` に退避済み
+※ Step 10 の設計計画は `docs/plan2.md` を参照
 
 ### 現在のパイプライン全体像
 
@@ -79,613 +80,411 @@
 
 ---
 
-<!-- Steps 0-7 は完了済み。docs/prompts_trash.md に退避。 -->
+<!-- Steps 0-9 は完了済み。docs/prompts_trash.md に退避。 -->
 
-## Step 8: 共同執筆環境（Google Drive + Webhook通知）
+## Step 10: 図表挿入（Mermaid→SVG + テキストボックス）
 
 ### 文脈
 
-- ビルドパイプライン（Steps 0-7）は完成済み。`./scripts/build.sh` で全書類を自動生成、`./scripts/roundtrip.sh` でビルド→Google Drive push→Windows PDF変換→pull が一括実行できる
-- 次のフェーズとして、**共同研究者がMarkdown本文を編集し、ビルドをトリガーできる環境**を構築する
-- 共同研究者はLinux/Git環境を持たない前提 → Google Drive上で完結する操作フローが必要
-- ビルド状況はGoogle Chat Webhook経由で通知する
+- 研究計画本文（様式1-2）に図表を埋め込みたい。扱う形式は (1) Mermaid 図をビルド時に SVG 変換したもの、(2) 既存画像（.jpg/.png/.svg）。配置方式はテキストボックス（`wp:anchor + wps:wsp`）
+- 参考プロジェクト:
+  - **`/home/dryad/anal/next-gen-comp-paper/`** — テキストボックス挿入の Lua フィルタ + post-process スクリプトを保持（`filters/jami-style.lua`, `scripts/wrap-textbox.py`）。これを簡略化して移植する
+  - **`/home/dryad/anal/auto-eth-paper/`** — Mermaid→SVG 変換用の docker コンテナ（`docker/mermaid-svg/`）を保持。これをそのまま移植し、出力を .pdf → .svg に切り替える
+- 既存の `inject_narrative.py` は画像 rId 統合・メディアコピー・Content_Types マージを既に実装済みのため、テキストボックス付き narrative docx を**そのまま運搬可能**な見込み（非改修前提）
+- 設計・リスク・ファイル構成の詳細は **`docs/plan2.md`** にまとめ済み
 
-### 共有フォルダ
+### 参照すべき資料（全 Prompt 共通）
 
-- Windows側パス: `I:\マイドライブ\share_temp\med-resist-collab`
-- rcloneパス: `gdrive:share_temp/med-resist-collab`（要確認・設定）
+| ファイル | 用途 |
+|---------|------|
+| `docs/plan2.md` | Step 10 の全体設計（必読） |
+| `docs/prompts.md`（本ファイル） | ステップ構成と完了チェック |
+| `CLAUDE.md` | プロジェクト構成・制約 |
+| `SPEC.md` | 入出力仕様 |
+| `/home/dryad/anal/next-gen-comp-paper/filters/jami-style.lua` | Lua フィルタのオリジナル |
+| `/home/dryad/anal/next-gen-comp-paper/scripts/wrap-textbox.py` | post-process のオリジナル |
+| `/home/dryad/anal/auto-eth-paper/docker/mermaid-svg/` | Mermaid docker コンテナのオリジナル |
+| `main/step02_docx/inject_narrative.py` | 既存の narrative 挿入（改修不要の見込み） |
+| `main/step02_docx/build_narrative.sh` | 改修対象（Lua フィルタ + mmd 前処理 + wrap_textbox 後処理を追加） |
 
-### 参照すべき資料
+### 絶対的な制約（Step 10 固有）
 
-| ファイル | 確認ポイント |
-|---------|------------|
-| `scripts/roundtrip.sh` | 既存のビルド→push→PDF待ち→pull フロー |
-| `scripts/sync_gdrive.sh` | rclone copy のパターン |
-| `CLAUDE.md` | プロジェクト構成 |
-| `SPEC.md` | パイプライン仕様 |
-
-### Prompt 8-1: 共同執筆 watcher スクリプトと .env 設定
-
-```
-scripts/collab_watcher.sh を作成し、.env ファイルにWebhook設定を配置してください。
-
-## 文脈
-共同研究者がGoogle Drive上のトリガーファイルを編集すると、Linux側でビルドが自動発火し、
-成果物が共有フォルダに配信される仕組みを構築します。
-Google Chat Webhook で各ステップの進捗を通知します。
-
-## 参照すべき資料
-
-- scripts/roundtrip.sh — 既存のビルド→push→PDF待ち→pullフロー
-- scripts/sync_gdrive.sh — rclone copy パターン
-- docs/prompts.md（全体的な文脈記載有り）
-- SPEC.md
-- README.md
-- CLAUDE.md
-
-## Google Drive 共有フォルダ構成
-
-rcloneパス: gdrive:share_temp/med-resist-collab
-
-  med-resist-collab/
-  ├── README_使い方.md           # 共同研究者向けの使い方説明（Prompt 8-2で作成）
-  ├── drafts/                    # 共同研究者が編集するMarkdown本文
-  │   ├── youshiki1_2.md         # 様式1-2: 研究計画詳細
-  │   ├── youshiki1_3.md         # 様式1-3: 追加説明事項
-  │   └── figs/                  # 図表ファイル
-  ├── trigger.txt                # トリガーファイル（"build" と記入で発火）
-  ├── status.txt                 # 現在の状態（更新はスクリプトが行う）
-  └── products/                  # 成果物配信先（PDF/docx）
-
-## .env ファイル（プロジェクトルート、gitignored）
-
-  # Google Chat Webhook URL（実際のURLは .env にのみ記載、git管理下には含めない）
-  GCHAT_WEBHOOK_URL=
-
-  # rclone リモートとパス
-  COLLAB_REMOTE="gdrive:"
-  COLLAB_PATH="share_temp/med-resist-collab"
-
-  # 実行環境（docker / uv / direct）
-  RUNNER="docker"
-
-  # ポーリング間隔（秒）
-  COLLAB_POLL_SEC=15
-
-  # クールダウン（前回ビルドからの最低間隔、秒）
-  COLLAB_COOLDOWN_SEC=120
-
-※ .env はプロジェクトルートの .gitignore に追加すること
-※ .env.example を作成してプレースホルダ値を配置すること（Webhook URL は空欄）
-
-## collab_watcher.sh の機能
-
-### メインループ
-1. .env を source して環境変数を読み込む（RUNNER, GCHAT_WEBHOOK_URL 等）
-2. COLLAB_POLL_SEC 間隔で trigger.txt を rclone cat で読み取り
-3. 内容が "build" で始まる場合:
-   a. ロックチェック（前回ビルドからCOLLAB_COOLDOWN_SEC以内なら無視、通知のみ）
-   b. trigger.txt を "IDLE" で上書き（echo "IDLE" | rclone rcat ...）
-   c. status.txt を「ビルド中」に更新
-   d. 以下の各フェーズを実行し、フェーズごとにWebhook通知
-4. trigger.txt の内容がそれ以外（"IDLE", 空文字等）なら何もしない
-
-### フェーズと通知
-
-  Phase 1: 双方向ドラフト同期
-    - Linux→Drive: rclone copy で main/step01_narrative/*.md → drafts/ に同期
-    - Linux→Drive: main/step01_narrative/figs/ → drafts/figs/ に同期
-    - Drive→Linux: rclone copy で drafts/*.md → main/step01_narrative/ に同期
-    - Drive→Linux: drafts/figs/ → main/step01_narrative/figs/ に同期
-    - ※ rclone copy は更新日時が新しいファイルのみ転送（--update フラグ使用）
-    - 通知: "📥 ドラフトを同期しました"
-
-  Phase 1.5: ソースコードバックアップ
-    - プロジェクトルート配下のソースコード（git管理ファイル）をタイムスタンプ付き zip に圧縮
-    - zip ファイル名: src_YYYYMMDD_HHMMSS.zip
-    - rclone copy で gdrive:tmp/med-resist-grant/src/ にアップロード
-    - 通知: "💾 ソースコードをバックアップしました"
-    - ※ バックアップ先は最終的に別のストレージに移動する想定のため、毎回生成で問題なし
-
-  Phase 2: ビルド
-    - ./scripts/build.sh を実行
-    - 通知（成功時）: "🔨 ビルド完了（validate ✓ / forms ✓ / narrative ✓ / security ✓ / excel ✓）"
-    - 通知（失敗時）: "❌ ビルド失敗: <エラー概要>"
-    - 失敗時は status.txt を「エラー」に更新して中断
-
-  Phase 3: roundtrip（push → PDF待ち → pull）
-    - ./scripts/roundtrip.sh --skip-build を実行
-    - 通知: "📤 Google Driveにアップロード中..."
-    - PDF変換完了後: "✅ PDF変換完了（N個）"
-
-  Phase 4: 成果物配信
-    - data/products/ の PDF と data/output/ の docx/xlsx を
-      rclone copy で共有フォルダの products/ にコピー
-    - 通知: "📦 成果物を共有フォルダに配信しました"
-
-  Phase 5: 完了
-    - status.txt を「完了 (YYYY-MM-DD HH:MM)」に更新
-    - 通知: "🎉 全工程完了。products/ フォルダを確認してください"
-
-### Webhook 通知関数
-
-  notify_gchat() {
-      local message="$1"
-      curl -s -X POST "$GCHAT_WEBHOOK_URL" \
-          -H "Content-Type: application/json" \
-          -d "$(jq -n --arg text "$message" '{text: $text}')"
-  }
-  # ※ jq を使って安全にJSON構築する（メッセージ内の ", \, 改行等を自動エスケープ）
-  # ※ Docker イメージに jq を追加するか、ホストの jq を使用
-
-### エラーハンドリング
-- 各フェーズで失敗した場合、Google Chat に失敗通知を送信
-- status.txt を「エラー: <フェーズ名>」に更新
-- ロックを解除してループを継続（次のトリガーを待つ）
-
-### ロック機構
-- ビルド中は /tmp/collab_watcher.lock を作成
-- 他のトリガーが来てもロックファイルが存在する間はスキップ
-- クールダウン: 前回ビルド完了から COLLAB_COOLDOWN_SEC 以内のトリガーは
-  「クールダウン中」と通知して無視
-
-### 起動・停止
-- フォアグラウンド実行: ./scripts/collab_watcher.sh
-- バックグラウンド実行: nohup ./scripts/collab_watcher.sh &
-- 停止: Ctrl+C（フォアグラウンド）または kill
-- 起動時に Google Chat に "🟢 Watcher起動" を通知
-- 停止時（trap EXIT）に "🔴 Watcher停止" を通知
-```
-
-#### 完了チェック
-
-- [x] .env が作成され .gitignore に追加されている
-- [x] .env.example が作成されている（Webhook URL は空欄のプレースホルダ）
-- [x] `./scripts/collab_watcher.sh` が起動し、ポーリングループに入る
-- [x] trigger.txt に "build" を書くとビルドが発火する
-- [x] 双方向ドラフト同期が動作する（Linux↔Drive の --update ベース）
-- [x] ソースコードバックアップ zip が gdrive:tmp/med-resist-grant/src/ に作成される
-- [x] 各フェーズで Google Chat に通知が届く（jq によるJSON構築）
-- [x] ビルド失敗時にエラー通知が届き、status.txt が「エラー」になる
-- [x] クールダウン期間内の再トリガーが無視される
-- [x] 成果物が共有フォルダの products/ に配信される
-- [x] trigger.txt クリア後の状態が "IDLE"（ゼロバイトではない）
+1. **既存パイプラインを破壊しない** — デモ挿入を除去すれば `./scripts/build.sh` と `DATA_DIR=data/dummy` E2E が従来通り通過すること
+2. **ホスト Python を使わない** — mermaid も python も Docker 経由で実行
+3. **inject_narrative.py は原則無改修** — 必要な場合は理由を明記して最小限の変更に留める
+4. **SPEC.md の参考プロジェクト記述は `jami-abstract-pandoc` のまま**だが、本ステップでは `next-gen-comp-paper` / `auto-eth-paper` を参照する。混乱を避けるため docs/plan2.md に明記済み
 
 ---
 
-### Prompt 8-2: 共同研究者向け使い方ドキュメント
+### Prompt 10-1: mermaid-svg コンテナの追加
 
-```
-共同研究者向けの使い方説明ドキュメントを作成してください。
-
-## 文脈
-共同研究者はLinux/Git環境を持たないため、Google Drive上での操作だけで
-Markdown本文の編集→ビルド→成果物確認ができる手順書が必要です。
-このファイルは Google Drive 共有フォルダに直接配置されます。
-
-## 参照すべき資料
-
-- docs/prompts.md（全体的な文脈記載有り）
-- SPEC.md
-- README.md
-- CLAUDE.md
-
-## 出力先
-
-Google Drive共有フォルダにコピーされるローカルファイル:
-  scripts/collab/README_使い方.md
-
-※ collab_watcher.sh の初回起動時に共有フォルダにコピーする想定
-
-## 内容
-
-### 1. はじめに
-- この共有フォルダの目的（申請書の共同執筆）
-- フォルダ構成の説明
-
-### 2. Markdownの編集方法
-- drafts/ 内のファイルを直接編集する
-- 使えるエディタの案内:
-  - Google Drive上で直接開く → テキストエディタ（Markdownのプレビューなし）
-  - VS Code (ブラウザ版: vscode.dev) にドラッグ&ドロップ → Markdownプレビュー付き
-  - ローカルにダウンロードして任意のエディタで編集 → 保存して再アップロード
-- Markdown記法の簡易リファレンス（見出し, リスト, 表, 画像参照, 強調, コメント）
-- 図表の追加方法: figs/ フォルダに画像を入れ、本文から `![説明](figs/filename.png)` で参照
-
-### 3. ビルドの実行方法
-- trigger.txt を開き、"build" と入力して保存
-- 数十秒以内にGoogle Chatに通知が届く
-- status.txt で現在の状態を確認可能
-- ビルド完了後、products/ フォルダにPDF/docx/xlsxが配信される
-
-### 4. 成果物の確認
-- products/ 内のPDFを開いてレイアウトを確認
-- 修正が必要な場合は drafts/ を編集して再度ビルド
-
-### 5. 注意事項
-- 前回ビルドから2分以内の再トリガーはスキップされる
-- Google Driveの同期に数秒〜十数秒のラグがある
-- ビルド中（status.txt が「ビルド中」の間）は drafts/ の編集を避ける
-- 問題が起きた場合はGoogle Chatで連絡
-
-### 6. Markdown記法クイックリファレンス
-- 基本記法の一覧表
-
-## スタイル
-- 日本語で記述
-- 技術用語は最小限に
-- 手順はスクリーンショットなしでも伝わるよう具体的に
-```
-
-#### 完了チェック
-
-- [x] scripts/collab/README_使い方.md が作成されている
-- [x] Markdown記法のリファレンスが含まれている
-- [x] trigger.txt の使い方が明確に説明されている
-- [x] 技術用語が最小限で、非技術者にも理解できる
-
----
-
-### Prompt 8-3: 共有フォルダの初期化と動作テスト
-
-```
-共有フォルダの初期セットアップと動作テストを実施してください。
+````
+Mermaid 図（.mmd）を SVG に変換するための docker コンテナを追加してください。
 
 ## 文脈
-Prompt 8-1, 8-2 で作成したスクリプトとドキュメントを使って、
-共有フォルダの初期配置と、トリガー→ビルド→配信の一連の動作を確認します。
+research 本文に Mermaid 図を埋め込めるようにするため、.mmd → .svg のビルド時変換を
+docker コンテナで実行できるようにします。auto-eth-paper の mermaid-svg コンテナを
+ほぼそのまま移植し、出力を .pdf ではなく .svg に切り替えます。
 
 ## 参照すべき資料
-
-- docs/prompts.md（全体的な文脈記載有り）
-- SPEC.md
-- README.md
-- CLAUDE.md
-
-## 手順
-
-1. rclone で共有フォルダの初期構造を作成:
-   - drafts/ に main/step01_narrative/*.md をコピー
-   - drafts/figs/ を作成
-   - trigger.txt を "IDLE" で配置
-   - status.txt を「待機中」で配置
-   - README_使い方.md を配置
-
-2. collab_watcher.sh を起動し、Google Chat に起動通知が届くことを確認
-
-3. trigger.txt に "build テスト" を rclone で書き込み
-
-4. 以下を検証:
-   - Google Chat に各フェーズの通知が届く
-   - ビルドが完走する
-   - products/ に成果物が配信される
-   - trigger.txt が "IDLE" になっている
-   - status.txt が「完了」になっている
-
-5. クールダウンテスト:
-   - 完了直後に再度 trigger.txt に "build" を書き込み
-   - クールダウン通知が来て、ビルドがスキップされることを確認
-
-6. エラーテスト:
-   - YAML を意図的に壊してトリガー
-   - エラー通知が届き、status.txt が「エラー」になることを確認
-   - YAML を修復
-```
-
-#### 完了チェック
-
-- [x] 共有フォルダに初期構造が配置されている
-- [x] trigger.txt → ビルド → 成果物配信の一連の流れが動作する
-- [x] Google Chat に全フェーズの通知が届く
-- [x] クールダウンが正常に機能する
-- [x] エラー時の通知と status.txt 更新が正しい
-
----
-
-## Step 9: 様式1-2/1-3 統合（ナラティブ挿入）
-
-### 文脈
-
-- 現在のパイプラインでは、様式1-2/1-3の本文（Pandoc生成）と様式1-1〜5のテーブル（fill_forms.py生成）が**別ファイル**として出力される
-- r08youshiki1_5.docx テンプレートには様式1-2/1-3の空セクション（ヘッダのみ）が含まれており、提出時にはここにPandoc生成の本文を挿入する必要がある
-- 提出要件: 「様式1-1〜5 + 参考様式は1つのPDFに結合して提出」（募集要項）
-- 現状の youshiki1_5_filled.pdf には空の様式1-2/1-3セクションが残存し、本文が入っていない
-
-### 設計方針
-
-- テンプレートの様式ヘッダ（「（様式１−２）」等）を**維持**する
-- 空セクションを削除するのではなく、Pandoc生成コンテンツを**挿入**する
-- python-docx での文書結合は書式崩壊リスクがあるため（SPEC.md記載）、OOXML直接操作（stdlib zipfile + xml.etree.ElementTree）を優先する
-- 参考実装: `/home/dryad/anal/jami-abstract-pandoc/` のOOXML後処理パターン
-
-### 詳細計画
-
-`docs/step4plan.md` に策定済み。以下はその要約。
-
-### Prompt 9-1: テンプレート構造解析
-
-```
-r08youshiki1_5.docx 内の様式1-2/1-3セクションの構造を解析してください。
-
-## 文脈
-fill_forms.py が出力する youshiki1_5_filled.docx には、様式1-2/1-3の空セクション（ヘッダ＋
-セクション見出しのみ）が残っている。これらのセクション内にPandoc生成の本文を挿入するため、
-正確なセクション境界を特定する必要がある。
-
-## 参照すべき資料
-
-- data/source/r08youshiki1_5.docx — オリジナルテンプレート
-- main/step02_docx/output/youshiki1_5_filled.docx — fill_forms.py出力
-- main/step02_docx/fill_forms.py — 既存のテーブル記入ロジック
-- docs/step4plan.md — 統合計画
-- SPEC.md §3.1 — 出力仕様
-- docs/prompts.md（全体的な文脈記載有り）
-- SPEC.md
-- README.md
-- CLAUDE.md
-
-## 実行環境
-
-解析スクリプトは Docker 環境で実行すること（build.sh と同じ RUNNER 方式）。
-ホスト Python に直接パッケージをインストールしないこと。
+- docs/plan2.md §5, §12（設計とリスク）
+- /home/dryad/anal/auto-eth-paper/docker/mermaid-svg/Dockerfile
+- /home/dryad/anal/auto-eth-paper/docker/mermaid-svg/convert-mermaid.sh
+- /home/dryad/anal/auto-eth-paper/docker/mermaid-svg/puppeteer-config.json
+- docker/docker-compose.yml（既存 python サービスの記述）
+- CLAUDE.md / SPEC.md
 
 ## 作業内容
 
-### A. テンプレート（youshiki1_5_filled.docx）の構造解析
+1. 新規ディレクトリ `docker/mermaid-svg/` を作成し、以下のファイルを配置:
+   - `Dockerfile` — auto-eth-paper 版をそのままコピー（イメージ名は無関係、compose が管理）
+   - `puppeteer-config.json` — auto-eth-paper 版をそのままコピー
+   - `convert-mermaid.sh` — auto-eth-paper 版をコピーし、末尾の mmdc 呼び出しを
+     `mmdc -i 'FILENAME' -o 'BASE.svg' -p /etc/puppeteer-config.json`
+     に変更（.pdf → .svg）。コメント・メッセージ文字列も svg に合わせて修正
 
-1. python-docx で youshiki1_5_filled.docx の全 body 要素（段落・テーブル）を列挙し、
-   各様式セクションの境界を特定する:
-   - 様式1-1 の範囲（開始〜終了）
-   - 様式1-2 の範囲（「（様式１−２）」ヘッダ〜セクション末尾）
-   - 様式1-3 の範囲
-   - 様式2-1 以降の開始位置
-2. 様式1-2/1-3 セクション内のプレースホルダ要素（空段落、見出しテキスト等）を特定する
-3. セクション境界の検出に使用できるテキストパターン or XML要素の特徴を整理する
-4. **全 w:sectPr 要素の位置・プロパティを調査する**:
-   - 各sectPrのbody要素インデックス
-   - ページ設定（w:pgSz, w:pgMar）
-   - ページ番号設定（w:pgNumType）
-   - ヘッダ/フッタ参照（w:headerReference, w:footerReference）
+2. `docker/docker-compose.yml` に `mermaid` サービスを追加（既存 python サービスは
+   一切変更しない）:
+   ```yaml
+   mermaid:
+     build:
+       context: ./mermaid-svg
+       dockerfile: Dockerfile
+     volumes:
+       - ..:/workspace
+     working_dir: /workspace
+     environment:
+       - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+   ```
 
-### B. Pandoc出力（youshiki1_2_narrative.docx / youshiki1_3_narrative.docx）の構造解析
+3. 動作確認用コマンド（README や CLAUDE.md には追記しない。本 Prompt 内で実行のみ）:
+   - 仮の .mmd ファイルを作成（`main/step01_narrative/figs/_smoke_test.mmd`、簡単な flowchart）
+   - `docker compose -f docker/docker-compose.yml run --rm -u $(id -u):$(id -g) mermaid \
+      mmdc -i main/step01_narrative/figs/_smoke_test.mmd \
+           -o main/step01_narrative/figs/_smoke_test.svg \
+           -p /etc/puppeteer-config.json`
+   - 出力 SVG が生成され、`<svg` で始まり日本語テキストが `<text>` 要素に入っていることを確認
+   - 動作確認後、`_smoke_test.mmd` と `_smoke_test.svg` は削除
 
-5. 各narrative docxの body 子要素一覧（w:p, w:tbl, w:sectPr 等）
-6. 使用されているスタイル名の一覧（Heading 1, Body Text 等）
-7. word/_rels/document.xml.rels 内のリレーションシップ一覧（画像、ハイパーリンクの有無）
-8. word/numbering.xml の有無と内容（リスト定義の有無）
-9. 末尾 w:sectPr のプロパティ（ページ設定、番号設定）
+4. 既存 `docker compose -f docker/docker-compose.yml run --rm python python --version`
+   が引き続き通ることを確認（既存 python サービスへの副作用なし）
+
+## 非機能要件
+- 初回ビルドには数分かかる可能性あり（chromium/node_modules ダウンロード）
+- image 名はデフォルト（`<project>_mermaid`）のままで良い
+- ホスト上に mmdc / node をインストールしないこと
 
 ## 出力
-
-解析結果を `docs/template_analysis.md` に出力する。以下の情報を含めること:
-- 各セクションの body 要素インデックス範囲
-- セクション検出に使えるマーカーテキスト
-- 挿入ポイント（Pandocコンテンツを挿入すべき位置）
-- 全sectPrの位置とプロパティ
-- Pandoc docxのスタイル名一覧、リレーションシップ一覧、numbering有無
-- 注意事項（セクションブレーク、ヘッダ/フッタ、ページ番号等）
-```
+- docker/mermaid-svg/Dockerfile
+- docker/mermaid-svg/puppeteer-config.json
+- docker/mermaid-svg/convert-mermaid.sh
+- docker/docker-compose.yml（mermaid サービス追加）
+````
 
 #### 完了チェック
 
-- [x] 様式1-2/1-3のセクション境界が特定されている
-- [x] 挿入ポイントが明確に定義されている
-- [x] セクション検出のためのテキストパターンが整理されている
+- [ ] `docker/mermaid-svg/` 配下の 3 ファイルが配置されている
+- [ ] `docker/docker-compose.yml` に mermaid サービスが追加され、既存 python サービスは無変更
+- [ ] `docker compose -f docker/docker-compose.yml build mermaid` が成功する
+- [ ] スモークテストの .mmd → .svg 変換が動作する
+- [ ] 既存 python サービスの動作に副作用がない
 
 ---
 
-### Prompt 9-2: inject_narrative.py の作成
+### Prompt 10-2: Lua フィルタと wrap_textbox.py の移植
 
-```
-Pandoc生成の様式1-2/1-3本文を youshiki1_5_filled.docx に挿入するスクリプトを作成してください。
+````
+次に、Pandoc 側のテキストボックスマーカー挿入（Lua フィルタ）と、docx 側のテキストボックス
+実体化（wrap_textbox.py）を作成してください。
 
 ## 文脈
-Prompt 9-1 の構造解析結果に基づき、youshiki1_5_filled.docx の空セクションに
-Pandoc生成コンテンツを挿入する。
+Markdown 本文中の `::: {.textbox ...}` Div ブロックを、Pandoc 経由では `TextBoxMarker`
+スタイルの隠し段落（START/END）で囲まれた通常段落に変換し、その後 Python スクリプトで
+START/END 区間を DrawingML テキストボックス（wp:anchor + wps:wsp）に置換します。
 
 ## 参照すべき資料
+- docs/plan2.md §6, §7（設計）
+- /home/dryad/anal/next-gen-comp-paper/filters/jami-style.lua
+- /home/dryad/anal/next-gen-comp-paper/scripts/wrap-textbox.py
+- main/step02_docx/inject_narrative.py（名前空間定数・ルートタグ処理の参考）
+- CLAUDE.md / SPEC.md
 
-- docs/step4plan.md — 統合計画（設計方針・リスク・代替案）
-- Prompt 9-1 の解析結果 — セクション境界・挿入ポイント
-- main/step02_docx/fill_forms.py — 既存のpython-docx操作パターン
-- /home/dryad/anal/jami-abstract-pandoc/ — OOXML後処理の参考実装
-- main/step02_docx/build_narrative.sh — Pandoc変換の設定（reference.docx等）
-- SPEC.md §3.1 — 出力仕様
-- CLAUDE.md — 制約（ホストPython禁止等）
+## 作業内容
 
-## 出力先
+### A. filters/textbox-minimal.lua（新規）
 
-main/step02_docx/inject_narrative.py
+next-gen-comp-paper の jami-style.lua から**最小限**を抽出して新規作成:
 
-## 機能要件
+- 保持: `to_emu()`, `textbox_marker()`, `process_textbox()` とその呼び出し
+- **削除**: JSEK本文 による全 Para ラップ、OrderedList 手動番号化、
+  .grid/GRID_TABLE マーカー、Pass 1 の .svg → .svg.png リネーム
+- 結果として `Pandoc` ハンドラは `.textbox` Div のみを START/END マーカーで囲み、
+  それ以外のブロックは完全にそのまま通す
 
-1. コマンドライン引数:
-   --template: youshiki1_5_filled.docx のパス
-   --youshiki12: youshiki1_2_narrative.docx のパス
-   --youshiki13: youshiki1_3_narrative.docx のパス
-   --output: 出力ファイルパス（デフォルト: --template を上書き）
+lua フィルタの返り値は 1 パスのみ（Pandoc フィルタを 1 つ返す形）にする。
 
-2. 処理フロー:
-   a. template docx を読み込み
-   b. 様式1-2 セクションを検出（Prompt 9-1 で特定したマーカーを使用）
-   c. セクション内のプレースホルダ要素（空段落、見出しテキスト等）を削除
-      ※ セクションヘッダ（「（様式１−２）」「研究課題名：」等のテンプレート要素）は維持
-   d. youshiki1_2_narrative.docx の body 要素を抽出
-   e. 挿入ポイントに body 要素を挿入（ElementTree の body.insert() / body.remove() で直接操作）
-   f. 様式1-3 についても同様に処理
-   g. 出力ファイルに保存
+### B. main/step02_docx/wrap_textbox.py（新規）
 
-3. スタイル処理:
-   - Pandoc側の reference.docx はテンプレートと同じスタイル定義を使用する前提
-   - スタイル名の衝突が発生した場合のフォールバック処理
-   - 画像（図表）が含まれる場合の rId 再割り当て
+next-gen-comp-paper の wrap-textbox.py から以下を移植:
 
-4. エラー処理:
-   - セクションマーカーが見つからない場合は明確なエラーメッセージ
-   - 入力ファイルが存在しない場合のエラー
-   - 挿入後のファイルが破損していないかの基本検証（python-docxで再読み込み可能か）
+- 保持:
+  - 名前空間定義・register_namespace
+  - `extract_root_tag` / `restore_root_tag`
+  - `is_textbox_marker` / `get_marker_text` / `parse_attrs`
+  - `resize_images_in_content`（テキストボックス幅に合わせて画像縮小）
+  - `build_textbox_paragraph`
+  - `embed_svg_native`（Office 2016+ の asvg:svgBlob による SVG ネイティブ埋込）
+  - `process_docx` のメインフロー
+- **削除**:
+  - `apply_booktabs_borders` とセル罫線ユーティリティ一式
+  - `resize_tables_in_content`（保持でも可。複雑化を避けるなら削除）
+  - `relocate_textbox_by_page`（本プロジェクトでは不要）
+- 変更:
+  - `process_docx()` は `no_relocate=True` 相当を**既定**にする（`--no-relocate` フラグは残すがデフォルト True）
+  - CLI 引数: `docx`（位置引数）, `--source`（Markdown ソース）
+  - `wp:docPr/@id` は 2000 番台から採番して、inject 先の docPr と衝突しにくくする
 
 ## 技術的注意事項
 
-- **python-docxの高レベルAPIではなく、stdlib `zipfile` + `xml.etree.ElementTree` でZIPを直接操作すること**
-  （python-docx経由だと別Documentオブジェクトの要素コピーでリレーションシップが壊れる）
-- docs/step4plan.md の Step B-1〜B-4 の仕様に従って実装すること
-- Pandoc docx から body 要素をコピーする際、以下を処理:
-  - **rIdリナンバリング**: ターゲットdocxの既存rId最大値を取得→ソース側をリナンバリング→body要素内の参照を書き換え
-  - **numbering統合**: ソースのw:abstractNum/w:numをターゲットに追加、ID衝突回避
-  - **メディアファイルコピー**: word/media/ 配下をターゲットZIPに追加
-  - **末尾sectPr除外**: Pandocが生成するbody末尾のw:sectPrは必ず除外
-  - **ルートタグ保存**: ElementTreeシリアライズ後に名前空間宣言が欠落しないよう、ルートタグを保存・復元する（jami-abstract-pandoc wrap-textbox.py:398-470 参照）
-  - **styles.xmlマージ**: テンプレートの word/styles.xml にPandocスタイル定義（Heading 1, Heading 2, Body Text, First Paragraph, Compact）を追加する。定義はテンプレートの既存スタイル（公募���領：本文１ 等）と同じフォント・サイズ・行間にする（docs/step4plan.md Step B-3 参照、fix_reference_styles.py のスタイル定義を参考）
-- **一時ファイルに出力→成功時にリネーム（atomic write）**: --output が --template と同一でも入力が破損しないようにする
-
-### jami-abstract-pandoc から再利用可能なパターン
-
-以下を参照・応用すること（文書間要素コピー自体は新規実装が必要）:
-
-| パターン | ファイル:行 | 用途 |
-|---------|-----------|------|
-| ZIPアーカイブI/O | wrap-textbox.py:754-759, 851-853 | docxの読み書き |
-| 名前空間登録 | wrap-textbox.py:20-38 | ET.register_namespace |
-| ルートタグ保存 | wrap-textbox.py:398-470 | extract_root_tag() / restore_root_tag() |
-| body要素操作 | wrap-textbox.py:780-831 | list(body) → iterate → remove/insert |
-| rels操作 | wrap-textbox.py:660-751 | rId追加、Content_Types更新 |
+- Python 標準ライブラリのみ使用（zipfile, xml.etree.ElementTree, re, os, io, argparse）
+- ホスト Python に新規パッケージを入れない
+- `inject_narrative.py` と**同じ名前空間定数を使用**（コピーで可）
 
 ## エッジケース
 
-以下のケースを適切に処理すること:
-- **画像なし**: rId処理をグレースフルにスキップ（rels操作不要）
-- **空のナラティブ**: body要素が0個の場合、プレースホルダ削除のみで挿入なし（エラーにしない）
-- **テーブルのみのナラティブ**: w:tbl要素の挿入。TableGridスタイルがテンプレートにない場合の処理
-- **番号付き/箇条書きリスト**: numbering.xmlのマージが必要。ソースにnumbering.xmlがない場合はスキップ
-- **脚注/尾注**: word/footnotes.xml のマージが必要。ソースに脚注がない場合はスキップ
-- **ハイパーリンク**: w:hyperlink内のrIdもリナンバリング対象
+- `::: {.textbox}` が 0 個の場合は `No TextBoxMarker regions found` を stdout に出して
+  exit 0。既存本文（youshiki1_2.md / youshiki1_3.md）に影響を与えないことを保証
+- `--source` が省略された場合は SVG ネイティブ埋込をスキップ（textbox 実体化のみ行う）
+- `extract_root_tag` / `restore_root_tag` は document.xml のルートのみを対象にすること
 
-## 非機能要件
+## 出力先
+- filters/textbox-minimal.lua
+- main/step02_docx/wrap_textbox.py
 
-- Docker 環境（python:3.12-slim）で実行可能であること
-- 追加 pip パッケージは不要（xml.etree.ElementTree, zipfile は Python 標準ライブラリ）
-- 処理時間: 10秒以内
-```
+## 動作確認（単体）
+- 本 Prompt 内では build_narrative.sh の改修は行わない。以下のスモーク確認のみ:
+  - 手で一時的に `pandoc main/step01_narrative/youshiki1_2.md \
+     --lua-filter=filters/textbox-minimal.lua --to docx \
+     --reference-doc=templates/reference.docx -o /tmp/tb_smoke.docx`
+  - 未変更の本文で正常に docx が生成され、unzip → document.xml に `TextBoxMarker`
+    が現れない（`.textbox` ブロック未使用のため）
+  - `python main/step02_docx/wrap_textbox.py /tmp/tb_smoke.docx` が `No TextBoxMarker
+    regions found` を出して正常終了すること
+````
 
 #### 完了チェック
 
-- [x] inject_narrative.py が作成されている
-- [x] コマンドライン引数が仕様どおり動作する
-- [x] 様式1-2/1-3の本文が正しい位置に挿入される
-- [x] テンプレートヘッダ（「（様式１−２）」等）が維持されている
-- [ ] 挿入後の docx が Word で正常に開ける
-- [ ] E2E テストで全ステップ通過する
+- [ ] `filters/textbox-minimal.lua` が作成され、100 行以下の最小構成
+- [ ] `main/step02_docx/wrap_textbox.py` が作成され、booktabs / relocate 部分が削除済み
+- [ ] 既存の youshiki1_2.md を Lua フィルタ経由で pandoc 変換しても崩れない
+- [ ] `.textbox` ブロック未使用時に wrap_textbox.py が副作用なく終了する
+- [ ] ホスト Python に新規パッケージ追加なし
 
 ---
 
-### Prompt 9-3: ビルドパイプライン統合
+### Prompt 10-3: build_narrative.sh への統合
 
-```
-inject_narrative.py を build.sh に統合し、create_package.sh を更新してください。
+````
+build_narrative.sh に mmd→svg 前処理と Lua フィルタ + wrap_textbox 後処理を統合してください。
 
 ## 文脈
-Prompt 9-2 で作成した inject_narrative.py をビルドパイプラインに組み込む。
-build.sh の処理順序に inject フェーズを追加し、create_package.sh から
-個別ナラティブファイルの必須チェックを除外する。
+Prompt 10-1 で作成した mermaid コンテナと、Prompt 10-2 で作成した Lua フィルタ /
+wrap_textbox.py をパイプラインに組み込みます。
 
 ## 参照すべき資料
-
-- scripts/build.sh — 既存のビルドスクリプト
-- scripts/create_package.sh — パッケージングスクリプト
-- docs/step4plan.md Step C, D — 統合計画
-- docs/prompts.md（全体的な文脈記載有り）
-- SPEC.md
-- README.md
-- CLAUDE.md
+- docs/plan2.md §8
+- main/step02_docx/build_narrative.sh（現行）
+- scripts/build.sh（narrative / inject フェーズ）
+- docker/docker-compose.yml（Prompt 10-1 で mermaid サービス追加済み）
+- CLAUDE.md / SPEC.md
 
 ## 変更内容
 
-### build.sh
-- 処理順序を変更: validate → forms → narrative → **inject** → security → excel
-- inject サブコマンドを追加:
-  - main/step02_docx/inject_narrative.py を Docker/uv/direct で実行
-  - 入力: youshiki1_5_filled.docx, youshiki1_2_narrative.docx, youshiki1_3_narrative.docx
-  - 出力: youshiki1_5_filled.docx（上書き）
-- inject 成功/失敗をビルド結果サマリに表示
+### main/step02_docx/build_narrative.sh
 
-### create_package.sh
-- REQUIRED_DOCX から youshiki1_2_narrative.docx と youshiki1_3_narrative.docx を除外
-  （youshiki1_5_filled.docx に統合済みのため）
-- チェックリストの「手動確認項目」から PDF結合手順を削除
-- 統合済みの確認メッセージを追加
+1. `reference.docx` 生成の直後に **Phase A: mermaid → svg** を追加:
+   - `main/step01_narrative/figs/*.mmd` を glob で探索
+   - 各 .mmd について、対応する .svg が存在しないか .mmd の mtime が新しい場合に変換
+   - 変換コマンドは `docker compose -f docker/docker-compose.yml run --rm \
+      -u $(id -u):$(id -g) mermaid mmdc -i <mmd> -o <svg> -p /etc/puppeteer-config.json`
+   - `MODE=local` の場合は mmdc がホストに存在しないため警告を出して変換をスキップ
+     （.svg が既存なら続行）
 
-### roundtrip.sh
-- 変更不要（youshiki1_5_filled.docx がそのまま push される）
+2. `PANDOC_OPTS` に **`--lua-filter=filters/textbox-minimal.lua`** を追加
 
-### data/dummy/
-- E2Eテストで inject が動作するよう、ダミーの narrative docx を作成すること（必須）
-- generate_stubs.py を更新し、最低限以下を含むnarrative docxスタブを生成:
-  見出し1つ、本文段落1つ、テーブル1つ（画像はオプション）
-- E2Eテスト（DATA_DIR=data/dummy）で inject フェーズが実行・検証されること
-```
+3. pandoc 変換の直後に **Phase C: wrap_textbox 後処理** を追加:
+   - 変換に成功した各 docx について
+     `run_python main/step02_docx/wrap_textbox.py --source <md> <docx>` を実行
+   - wrap_textbox の失敗はビルド失敗として扱う（非ゼロ exit）
+
+### scripts/build.sh
+
+- `narrative` フェーズの定義は既存のまま（内部で build_narrative.sh を呼ぶので自動で
+  新フェーズが走る）
+- `check` サブコマンドの対象ファイルリストに変更なし
+
+### 非破壊性チェック
+
+- `.textbox` ブロックを 1 つも含まない現行本文で:
+  - Phase A は .mmd が無ければスキップ
+  - Lua フィルタは `.textbox` を見つけないのでマーカーを追加しない
+  - wrap_textbox.py は `No TextBoxMarker regions found` を出して exit 0
+  - 最終的な docx 内容は Step 10 導入前と差分ゼロであること（バイナリ diff 或いは
+    unzip 後の document.xml diff で確認）
+
+## 出力
+- main/step02_docx/build_narrative.sh（改修）
+````
 
 #### 完了チェック
 
-- [x] build.sh に inject サブコマンドが追加されている
-- [x] `./scripts/build.sh` で全ステップ（validate/forms/narrative/inject/security/excel）が通過する
-- [x] `./scripts/build.sh inject` で inject のみ実行可能
-- [x] create_package.sh が更新されている
-- [x] E2Eテスト（DATA_DIR=data/dummy）が通過する（narrative は Docker/pandoc 必要、inject は DATA_DIR フォールバックで動作確認済み）
-- [x] roundtrip.sh で生成された PDF に様式1-2/1-3の本文が含まれている（p.3-9: 様式1-2、p.10-12: 様式1-3）
-- [x] PDF のページ番号が通しで振られている（-1- ～ -20-）
+- [ ] build_narrative.sh に Phase A（mmd→svg）が追加されている
+- [ ] PANDOC_OPTS に `--lua-filter=filters/textbox-minimal.lua` が追加されている
+- [ ] 変換後 wrap_textbox.py が自動実行される
+- [ ] 現行本文（textbox なし）で `./scripts/build.sh narrative` が通り、document.xml diff が想定内
+- [ ] E2E テスト `RUNNER=docker DATA_DIR=data/dummy SETUP_DIR=data/dummy ./scripts/build.sh` が通る
 
 ---
 
-### Prompt 9-4: 統合テスト・検証
+### Prompt 10-4: デモ図表の挿入と単体確認
 
-```
-Step 9 の実装結果を検証してください。
+````
+デモ画像と Mermaid 図を youshiki1_2.md に挿入し、build_narrative → wrap_textbox の
+範囲で図が埋め込まれることを確認してください。
 
 ## 文脈
-Prompt 9-1〜9-3 の実装が完了した状態で、エンドツーエンドの動作確認を行う。
+既存ワークフローを破壊しないまま、画像挿入機能が動作することを実証します。Prompt 10-5 で
+inject_narrative.py 連携まで含めた E2E を行うため、本 Prompt では narrative docx 生成
+までで止めます。
 
 ## 参照すべき資料
+- docs/plan2.md §10
+- main/step01_narrative/figs/bg_hospital.jpg（デモ画像、既に配置済み）
+- main/step01_narrative/youshiki1_2.md（編集対象）
 
-- docs/step4plan.md Step E — テスト計画
-- data/products/*.pdf — 検証対象
+## 作業内容
 
-## 検証項目
+1. `main/step01_narrative/figs/fig1_overview.mmd` を新規作成（内容は下記の例）:
 
-1. フルビルド: ./scripts/build.sh で全ステップ OK
-2. roundtrip: ./scripts/roundtrip.sh で PDF 生成完了
-3. youshiki1_5_filled.docx を Word で開き以下を確認:
-   - **修復ダイアログが表示されないこと**（表示された場合はOOXML構造に問題あり）
-     - Linux代替検証: python-docx での再読み込み成功確認 + `libreoffice --headless --convert-to pdf` での変換成功確認（Word環境がない場合）
-   - 様式1-1 の後に様式1-2 の本文が正しく挿入されている
-   - 様式1-2 のテンプレートヘッダ（「（様式１−２）」「研究課題名：」）が維持されている
-   - 様式1-2 の本文内容が youshiki1_2.md の記述と一致する
-   - 様式1-3 についても同様
-   - 様式2-1 以降が正常に表示される
-   - ページ番号が通しで振られている（全体で1から連番）
-   - フォント・スタイルが統一されている（MS明朝 10.5pt / MSゴシック見出し）
-   - 表（Markdown テーブル）が正しくレンダリングされている
-   - **画像が正しく表示されること**（Markdown中の図がある場合）
-   - **ハイパーリンクが機能すること**（URL参照がある場合）
-   - **空白ページが発生していないこと**（セクションブレーク不整合の典型症状）
-   - 様式1-2 が15ページ以内に収まっている
-   - **ファイルサイズが10MB以下（目標3MB）であること**
-4. E2Eテスト: DATA_DIR=data/dummy で全ステップ通過
-5. create_package.sh が正常に動作し、チェックリストが正しい
-6. 問題があれば修正し、再検証
+   ```mermaid
+   %%{init: {'theme':'base','themeVariables':{'fontSize':'18px'}}}%%
+   flowchart LR
+       A[DPC/NDB/レセプト] --> B[需給推定器]
+       B --> C[地域医療シミュレータ]
+       D[サイバー攻撃シナリオ] --> C
+       C --> E[インパクト評価レポート]
+   ```
+
+2. `main/step01_narrative/youshiki1_2.md` の適切な見出し配下（例: 「１．本研究の背景」末尾
+   または「３．本研究の最終目標および要素課題」冒頭）に、以下 2 ブロックを追加:
+
+   - デモ画像（病院写真）:
+     ```
+     ::: {.textbox width="90mm" height="60mm" pos-x="0mm" pos-y="0mm" anchor-h="column" anchor-v="paragraph" wrap="square" behind="false"}
+     ![病院施設の外観（デモ画像）](figs/bg_hospital.jpg){#fig:hospital}
+     :::
+     ```
+
+   - Mermaid 図:
+     ```
+     ::: {.textbox width="120mm" height="70mm" pos-x="0mm" pos-y="0mm" anchor-h="column" anchor-v="paragraph" wrap="square" behind="false"}
+     ![医療需給動態モデルの処理フロー（概念図）](figs/fig1_overview.svg){#fig:overview}
+     :::
+     ```
+
+   既存の章構成・本文は改変しないこと。追加する段落・キャプション文を最小限に抑え、
+   15 ページ制限に影響しないよう配慮。
+
+3. `./scripts/build.sh narrative` を実行し、以下を確認:
+   - `main/step01_narrative/figs/fig1_overview.svg` が生成されている
+   - `main/step02_docx/output/youshiki1_2_narrative.docx` が生成されている
+   - unzip して `word/document.xml` を grep し、以下を確認:
+     - `wp:anchor` が 2 個以上存在
+     - `wps:wsp` が 2 個以上存在
+     - `a:blip` の `r:embed` 参照が存在
+     - SVG ネイティブ埋込: `asvg:svgBlob` 要素が 1 個以上
+   - `word/media/` に bg_hospital.jpg と fig1_overview.svg（または svgN.svg）が含まれる
+   - `word/_rels/document.xml.rels` に対応する image rels が存在
+
+4. 既存 E2E の非破壊性:
+   - `RUNNER=docker DATA_DIR=data/dummy SETUP_DIR=data/dummy ./scripts/build.sh` が通る
+     （dummy にはデモ .textbox ブロックを入れない）
 
 ## 出力
-
-検証結果をコンソールに報告。問題がなければ docs/prompts.md の完了チェックを更新。
-```
+- main/step01_narrative/figs/fig1_overview.mmd（新規）
+- main/step01_narrative/figs/fig1_overview.svg（ビルド生成物、.gitignore 方針は plan2.md
+  で再確認）
+- main/step01_narrative/youshiki1_2.md（デモブロック追記）
+````
 
 #### 完了チェック
 
-- [ ] フルビルドが全ステップ OK
-- [ ] youshiki1_5_filled.pdf に様式1-2/1-3の本文が含まれている
-- [ ] テンプレートヘッダが維持されている
-- [ ] ページ番号が通し番号
-- [ ] フォント・スタイルが統一
-- [ ] 様式1-2 が15ページ以内
-- [ ] E2Eテスト通過
-- [ ] create_package.sh のチェックリストが正しい
+- [ ] fig1_overview.mmd が作成されている
+- [ ] youshiki1_2.md に 2 つの .textbox ブロックが追加されている
+- [ ] build_narrative で fig1_overview.svg が生成される
+- [ ] narrative docx 内に wp:anchor と asvg:svgBlob が埋め込まれる
+- [ ] word/media/ に bg_hospital.jpg と SVG が含まれる
+- [ ] dummy E2E が通る
+
+---
+
+### Prompt 10-5: inject 連携と E2E 検証
+
+````
+narrative docx から youshiki1_5_filled.docx へ図が正しく運搬されることを検証し、
+PDF 化まで含めたエンドツーエンドテストを実施してください。
+
+## 文脈
+inject_narrative.py は画像 rels マージ・Content_Types 更新・ルートタグ保存に対応済み
+のため、原則として改修は不要の見込みです。本 Prompt で実地検証し、必要があれば最小限の
+パッチを当てます。
+
+## 参照すべき資料
+- docs/plan2.md §9, §11
+- main/step02_docx/inject_narrative.py（merge_rels / copy_media / merge_content_types）
+
+## 検証項目
+
+1. **フルビルド**: `./scripts/build.sh` が全ステップ通過
+2. **inject 後の構造**: `main/step02_docx/output/youshiki1_5_filled.docx` を unzip し
+   以下を確認:
+   - `word/document.xml` 内に Prompt 10-4 で追加した wp:anchor / asvg:svgBlob が存在
+   - `word/_rels/document.xml.rels` に対応する image rels が存在
+   - `word/media/` に bg_hospital.jpg と SVG が存在（衝突時は `*_nN.*` にリネーム）
+   - `[Content_Types].xml` に svg の Default extension が含まれる
+3. **LibreOffice レンダリング**:
+   - `libreoffice --headless --convert-to pdf main/step02_docx/output/youshiki1_5_filled.docx`
+   - 生成 PDF を `pdfimages -list` で確認し、少なくとも 2 個のラスタ / ベクタ画像が
+     含まれていること
+   - `pdftotext -layout` でテキスト化し、様式ヘッダや本文が崩れていないこと
+4. **ページ数**: 様式1-2 部分のページ数が 15 ページ以内（デモ 2 図込み）
+5. **ファイルサイズ**: 最終 docx が 10MB 未満、目標 3MB 未満
+6. **非破壊**: デモ `.textbox` ブロックを **youshiki1_2.md から一時的に削除** して
+   ビルドし直した場合に、以下が成立:
+   - document.xml に wp:anchor / asvg:svgBlob が現れない
+   - 既存 E2E `DATA_DIR=data/dummy` が引き続き通過
+   - （削除を戻してから本 Prompt を完了させる）
+
+## 改修が必要な場合の判断基準
+- inject 後に画像が欠落する → `merge_rels` の `_COPY_REL_TYPES` にテキストボックス特有の
+  関係タイプが必要か確認
+- docPr id 衝突によるオフセットずれ → wrap_textbox.py の docPr id 開始番号を調整
+- 画像の配置崩れ → plan2.md §12 のリスク表に沿ってフォールバック（PNG 同時埋込等）
+
+## 出力
+- 検証結果レポート（コンソール出力で十分、docs への書き出しは不要）
+- 問題があれば最小限のコード修正
+````
+
+#### 完了チェック
+
+- [ ] フルビルドで youshiki1_5_filled.docx に 2 つの図が運搬されている
+- [ ] LibreOffice PDF 化で画像が視認できる
+- [ ] docx 内の Content_Types / rels / media が正しく更新されている
+- [ ] 様式1-2 が 15 ページ以内
+- [ ] デモを外した状態で既存 E2E が通る（非破壊性）
+- [ ] inject_narrative.py 側の改修が不要（または最小限で説明付き）
+
+---
+
