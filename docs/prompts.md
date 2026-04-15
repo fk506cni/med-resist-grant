@@ -129,7 +129,6 @@ docker コンテナで実行できるようにします。auto-eth-paper の mer
 ## 参照すべき資料
 - docs/plan2.md §5, §12（設計とリスク）
 - /home/dryad/anal/auto-eth-paper/docker/mermaid-svg/Dockerfile
-- /home/dryad/anal/auto-eth-paper/docker/mermaid-svg/convert-mermaid.sh
 - /home/dryad/anal/auto-eth-paper/docker/mermaid-svg/puppeteer-config.json
 - docker/docker-compose.yml（既存 python サービスの記述）
 - CLAUDE.md / SPEC.md
@@ -137,16 +136,25 @@ docker コンテナで実行できるようにします。auto-eth-paper の mer
 ## 作業内容
 
 1. 新規ディレクトリ `docker/mermaid-svg/` を作成し、以下のファイルを配置:
-   - `Dockerfile` — auto-eth-paper 版をそのままコピー（イメージ名は無関係、compose が管理）
+   - `Dockerfile` — auto-eth-paper 版をベースに後述の改修を適用
    - `puppeteer-config.json` — auto-eth-paper 版をそのままコピー
-   - `convert-mermaid.sh` — auto-eth-paper 版をコピーし、末尾の mmdc 呼び出しを
-     `mmdc -i 'FILENAME' -o 'BASE.svg' -p /etc/puppeteer-config.json`
-     に変更（.pdf → .svg）。コメント・メッセージ文字列も svg に合わせて修正
+   - `mermaid-config.json` — **新規追加**。内容: `{"flowchart":{"htmlLabels":false}}`。
+     mermaid-cli の既定では flowchart ラベルが `<foreignObject>+HTML span` で出力され、
+     wrap_textbox.py の `embed_svg_native`（lxml で SVG をパースし DrawingML に注入）が
+     Word 上で空白の四角になる。`htmlLabels:false` を強制することで `<text>/<tspan>`
+     出力に切り替え、Word DrawingML との互換を確保する。Dockerfile で
+     `/etc/mermaid-config.json` に COPY する
 
 2. `docker/mermaid-svg/Dockerfile` の改修ポイント（auto-eth-paper 版から変更）:
    - **`inkscape` を apt-get install から除外**（SVG 出力では不要、イメージサイズ削減）
    - **`ENV HOME=/tmp` を追加**（任意 UID 実行時に puppeteer/chromium が `$HOME/.config` に
-     書き込めるようにするため。既存 python サービスと同じ理由）
+     書き込めるようにするため。compose の `environment` でも同値を入れるが、`docker run`
+     単体実行・スクリプト経由実行で救命するため Dockerfile にも書く）
+   - **`mermaid-cli` のバージョンを `@10.9.1` にピン留め**。mermaid-cli 11.x（mermaid v11
+     flowchart-v2 renderer）は `flowchart.htmlLabels:false` 設定を **無視して常に
+     `<foreignObject>` を出力する** ため、wrap_textbox.embed_svg_native との互換が崩れる
+     （実測済み）。10.x 系はこの設定が機能する
+   - **`COPY mermaid-config.json /etc/mermaid-config.json`** を追加
 
 3. `docker/docker-compose.yml` に `mermaid` サービスを追加（既存 python サービスは
    一切変更しない）:
@@ -174,10 +182,15 @@ docker コンテナで実行できるようにします。auto-eth-paper の mer
    - `docker compose -f docker/docker-compose.yml run --rm -u $(id -u):$(id -g) mermaid \
       mmdc -i main/step01_narrative/figs/_smoke_test.mmd \
            -o main/step01_narrative/figs/_smoke_test.svg \
-           -p /etc/puppeteer-config.json`
-   - 出力 SVG が生成され、`<svg` で始まり日本語テキスト（「日本語ラベル」「テスト」）が
-     `<text>` 要素に入っていることを確認
-   - 動作確認後、`_smoke_test.mmd` と `_smoke_test.svg` は削除
+           -p /etc/puppeteer-config.json \
+           -c /etc/mermaid-config.json`
+     **`-c /etc/mermaid-config.json` の指定は必須** — 省略すると `<foreignObject>` 出力に
+     なり後段の wrap_textbox 経由 Word 表示が壊れる
+   - 出力 SVG に `<foreignObject>` が **0 件** で、日本語テキスト（「日本語ラベル」「テスト」）が
+     `<text>/<tspan>` 要素に入っていることを `grep` で確認
+   - 同じ configFile で `sequenceDiagram` の最小例も変換し、`<foreignObject>` 0 件を確認
+     （flowchart 以外で htmlLabels 設定が有効か検証）
+   - 動作確認後、`_smoke_test*.mmd` と `_smoke_test*.svg` は削除
 
 5. **テンプレート docPr@id 帯の確認**（M09-01/M09-02 対策）:
    - `data/source/r08youshiki1_5.docx` を unzip し、`word/document.xml` 内の
@@ -185,8 +198,12 @@ docker コンテナで実行できるようにします。auto-eth-paper の mer
    - 値が 1000 未満であれば、wrap_textbox.py の `--docpr-id-base 3000` で安全
    - 結果を Prompt 10-2 実装担当に申し送る（docs/plan2.md §7.2 の前提確認）
 
-4. 既存 `docker compose -f docker/docker-compose.yml run --rm python python --version`
-   が引き続き通ることを確認（既存 python サービスへの副作用なし）
+6. 既存 python サービスへの副作用がないことを確認:
+   - `docker compose -f docker/docker-compose.yml run --rm python python --version`
+     が引き続き通る
+   - `./scripts/build.sh validate` が引き続き成功する（YAML バリデーションが通る）
+   - `docker compose -f docker/docker-compose.yml config` の python サービス箇所が
+     mermaid サービス追加前後で差分ゼロ
 
 ## 非機能要件
 - 初回ビルドには数分かかる可能性あり（chromium/node_modules ダウンロード）
@@ -196,25 +213,30 @@ docker コンテナで実行できるようにします。auto-eth-paper の mer
 ## 出力
 - docker/mermaid-svg/Dockerfile
 - docker/mermaid-svg/puppeteer-config.json
-- docker/mermaid-svg/convert-mermaid.sh
+- docker/mermaid-svg/mermaid-config.json
 - docker/docker-compose.yml（mermaid サービス追加）
 ````
 
 #### 完了チェック
 
-- [x] `docker/mermaid-svg/` 配下の 3 ファイルが配置されている
+- [x] `docker/mermaid-svg/` 配下の 3 ファイル（Dockerfile / puppeteer-config.json /
+      mermaid-config.json）が配置されている
 - [x] Dockerfile から `inkscape` が除外されている
 - [x] Dockerfile に `ENV HOME=/tmp` が設定されている
+- [x] Dockerfile で mermaid-cli が **`@10.9.1` にピン留め** されている
+      （11.x は `htmlLabels:false` を無視するため使えない — 実測済み）
+- [x] Dockerfile で `mermaid-config.json` を `/etc/mermaid-config.json` に COPY
 - [x] `docker/docker-compose.yml` に mermaid サービスが追加され、`environment: HOME=/tmp`
       を含み、既存 python サービスは無変更
 - [x] `docker compose -f docker/docker-compose.yml build mermaid` が成功する
-- [x] スモークテストの .mmd → .svg 変換が動作し、出力 SVG に日本語が `<text>` で埋込済み
-      （注: mermaid-cli の既定は `foreignObject`+HTML span 出力。`<text>/<tspan>` 化には
-      configFile で `{"flowchart":{"htmlLabels":false}}` を指定する必要あり → Prompt 10-2 申し送り）
+- [x] スモークテストの .mmd → .svg 変換が動作し、`-c /etc/mermaid-config.json` 指定下で
+      出力 SVG の `<foreignObject>` が 0 件、日本語が `<text>/<tspan>` に埋込まれる
+      （flowchart と sequenceDiagram の両方で実測確認）
 - [x] テンプレート `r08youshiki1_5.docx` の既存 `wp:docPr/@id` 最大値を確認し、
       Prompt 10-2 の `--docpr-id-base 3000` で安全であることを記録
       （結果: `wp:docPr` 要素は 0 件＝既存 ID 帯と完全に非衝突）
-- [x] 既存 python サービスの動作に副作用がない（`python --version` → 3.11.15）
+- [x] 既存 python サービスの動作に副作用がない（`python --version` → 3.12.13、
+      `./scripts/build.sh validate` 成功、compose config 差分ゼロ）
 
 ---
 
@@ -403,7 +425,10 @@ wrap_textbox.py をパイプラインに組み込みます。
      ```
    - 各 .mmd について、対応する .svg が存在しないか .mmd の mtime が新しい場合に変換
    - 変換コマンドは `docker compose -f docker/docker-compose.yml run --rm \
-      -u $(id -u):$(id -g) mermaid mmdc -i <mmd> -o <svg> -p /etc/puppeteer-config.json`
+      -u $(id -u):$(id -g) mermaid mmdc -i <mmd> -o <svg> \
+      -p /etc/puppeteer-config.json -c /etc/mermaid-config.json`
+     （**`-c /etc/mermaid-config.json` は必須** — Prompt 10-1 申し送り。省略すると
+     `<foreignObject>` 出力になり embed_svg_native が silent fail する）
    - **Phase A 後段**: `figs/*.svg` を nullglob 配列で列挙し、各 svg について同名の
      `<svg>.png`（命名規約: `foo.svg` → `foo.svg.png`、Lua フィルタの Pass 1 と一致）を
      `rsvg-convert -d 300 -p 300` で生成。これは pandoc に primary blip = PNG を渡すため

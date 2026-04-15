@@ -57,8 +57,8 @@ med-resist-grant/
 │   └── mermaid-svg/                    # 新規コンテナ（auto-eth-paperより移植）
 │       ├── Dockerfile                  # node:20-slim + chromium + mmdc + fonts-noto-cjk
 │       │                               # （inkscape は不要なので除外する）
-│       ├── convert-mermaid.sh          # .mmd → .svg（既存 .pdf 版を改変）
-│       └── puppeteer-config.json
+│       ├── puppeteer-config.json
+│       └── mermaid-config.json         # 新規。{"flowchart":{"htmlLabels":false}} を強制
 ├── filters/                            # 新規ディレクトリ
 │   └── textbox-minimal.lua             # 新規。.textbox Div のみ処理する最小 lua フィルタ
 ├── main/
@@ -110,21 +110,24 @@ med-resist-grant/
 
 - **`inkscape` を除外**（SVG 出力では不要、イメージサイズ削減）
 - **`ENV HOME=/tmp` を追加**（任意 UID 実行時に puppeteer/chromium が `$HOME/.config` に書き込めるように）
+- **mermaid-cli を `@10.9.1` にピン留め**。mermaid-cli 11.x（mermaid v11 flowchart-v2 renderer）は `flowchart.htmlLabels:false` 設定を **無視して常に `<foreignObject>` を出力する**（Prompt 10-1 で実測）。`embed_svg_native` は SVG を lxml でパースして DrawingML に注入する設計のため、`<foreignObject>+HTML span` のままだと Word 上で空白の四角になる。10.9.1 では `htmlLabels:false` が機能することを確認済み
+- **`COPY mermaid-config.json /etc/mermaid-config.json`** を追加（§5.2 参照）
 
-`node:20-slim + chromium + fonts-noto-cjk + ipafont + mermaid-cli` を含む。
+`node:20-slim + chromium + fonts-noto-cjk + ipafont + mermaid-cli@10.9.1` を含む。
 
-### 5.2 `docker/mermaid-svg/convert-mermaid.sh`
+### 5.2 `docker/mermaid-svg/mermaid-config.json`（必須）
 
-出力を **.pdf → .svg** に変更する（1行修正のみ）:
+mermaid-cli の configFile（`-c` で渡す）。内容は最小:
 
-```bash
-# before
-mmdc -i '$MMD_FILENAME' -o '$BASE_NAME.pdf' -p /etc/puppeteer-config.json -f
-# after
-mmdc -i '$MMD_FILENAME' -o '$BASE_NAME.svg' -p /etc/puppeteer-config.json
+```json
+{ "flowchart": { "htmlLabels": false } }
 ```
 
-イメージ名は `med-resist-mermaid` にリネーム（他プロジェクトとの衝突回避）。
+**この設定が無いと flowchart の日本語ラベルは `<foreignObject>` 内 HTML span として出力され、`embed_svg_native` 経由で Word に注入したときに空白の四角にレンダリングされる**。Prompt 10-1 のスモークテストで実測済み（`grep -o '<foreignObject' smoke.svg | wc -l` が 0 件になり、`<text>/<tspan>` に日本語が入る）。
+
+**注意**: `htmlLabels:false` は **flowchart 専用**のキー。`sequenceDiagram` は実測上同じ configFile で `<foreignObject>` 0 件になることを確認済みだが、`classDiagram` / `stateDiagram` / `gantt` / `pie` / `mindmap` 等は未検証。**新しい図種を追加する際は configFile に追加設定が必要かを再確認すること**。
+
+イメージ名は compose のデフォルト命名（`docker-mermaid` 等、プロジェクト名依存）に任せる。`convert-mermaid.sh` は本計画では使用しない（`build_narrative.sh` から compose 経由で `mmdc` を直叩きする方針）。
 
 ### 5.3 docker-compose への追加
 
@@ -219,7 +222,7 @@ if not os.path.isfile(svg_full_path):
 
 ### 7.2 `wp:docPr/@id` 採番ベース（`--docpr-id-base`）
 
-`build_textbox_paragraph()` 内で `docPr@id` に `id_base + z_order` を割り当てる。`--docpr-id-base` 引数で外部から指定可能とし、デフォルトは **3000**（テンプレート docx の既存 docPr@id 帯が 1〜200 程度であることを Prompt 10-1 で確認したうえで、十分離れた値）。
+`build_textbox_paragraph()` 内で `docPr@id` に `id_base + z_order` を割り当てる。`--docpr-id-base` 引数で外部から指定可能とし、デフォルトは **3000**（テンプレート docx `data/source/r08youshiki1_5.docx` の `wp:docPr` 要素は **実測 0 件**＝既存 ID 帯と完全に非衝突であることを Prompt 10-1 で確認済み）。
 
 build_narrative.sh からは:
 
@@ -257,7 +260,9 @@ for mmd in "${mmd_files[@]}"; do
     if [[ ! -f "$svg" || "$mmd" -nt "$svg" ]]; then
         docker compose -f docker/docker-compose.yml run --rm \
             -u "$(id -u):$(id -g)" mermaid \
-            mmdc -i "$mmd" -o "$svg" -p /etc/puppeteer-config.json
+            mmdc -i "$mmd" -o "$svg" \
+                 -p /etc/puppeteer-config.json \
+                 -c /etc/mermaid-config.json
     fi
 done
 
@@ -369,6 +374,8 @@ flowchart LR
 | **build_narrative.sh Phase A の bash glob ゼロ件失敗** | §8 のとおり `shopt -s nullglob` で囲む |
 | **pandoc 3.6 の primary blip 形式（SVG/PNG）がビルドにより混在** | §6 で svg→svg.png リネーム Pass 1 を維持し、primary は必ず PNG。`librsvg2-bin` を docker/python/Dockerfile に追加 |
 | mermaid-cli の chromium サンドボックスが host で起動しない | `puppeteer-config.json` の `--no-sandbox` 設定を継承 |
+| mermaid-cli 11.x の flowchart-v2 renderer が `htmlLabels:false` を無視する | mermaid-cli を `@10.9.1` にピン留め（§5.1, Prompt 10-1 で実測） |
+| `htmlLabels:false` は flowchart 専用キー。class/state/gantt/pie/mindmap で `<foreignObject>` が再発する可能性 | 新しい図種を追加する際は configFile の追加設定要否を都度確認。`embed_svg_native` 内で `<foreignObject>` 検出時に非ゼロ exit を上げる安全装置の追加を Prompt 10-2 で検討 |
 | 日本語フォントが SVG に埋め込まれない | fonts-noto-cjk + fonts-ipafont を Dockerfile に同梱済み |
 | `anchor-v="paragraph"` で位置が意図せず動く | `wrap="square"`/`"tight"` を既定として流し込み、執筆者が必要に応じて `pos-y` で微調整 |
 | 既存 Markdown の `![](...)` 直接参照が lua フィルタを通さないため位置制御できない | 原則 `.textbox` Div で囲むルールを README に明記 |

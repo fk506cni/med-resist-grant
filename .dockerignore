@@ -1,0 +1,12 @@
+.git/
+__archives/
+docs/__archives/
+refs/
+jank/
+data/source/
+data/output/
+data/products/
+main/*/output/
+*.pyc
+__pycache__/
+node_modules/

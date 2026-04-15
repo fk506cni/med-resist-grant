@@ -5,8 +5,7 @@
     "--disable-dev-shm-usage",
     "--disable-gpu",
     "--disable-software-rasterizer",
-    "--disable-extensions",
-    "--single-process"
+    "--disable-extensions"
   ],
   "headless": true
 }
