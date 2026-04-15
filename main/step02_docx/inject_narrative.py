@@ -45,6 +45,8 @@ NSMAP = {
     "wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
     "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
     "w15": "http://schemas.microsoft.com/office/word/2012/wordml",
+    "a14": "http://schemas.microsoft.com/office/drawing/2010/main",
+    "asvg": "http://schemas.microsoft.com/office/drawing/2016/SVG/main",
 }
 
 for _prefix, _uri in NSMAP.items():
