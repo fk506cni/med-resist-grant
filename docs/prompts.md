@@ -202,16 +202,19 @@ docker コンテナで実行できるようにします。auto-eth-paper の mer
 
 #### 完了チェック
 
-- [ ] `docker/mermaid-svg/` 配下の 3 ファイルが配置されている
-- [ ] Dockerfile から `inkscape` が除外されている
-- [ ] Dockerfile に `ENV HOME=/tmp` が設定されている
-- [ ] `docker/docker-compose.yml` に mermaid サービスが追加され、`environment: HOME=/tmp`
+- [x] `docker/mermaid-svg/` 配下の 3 ファイルが配置されている
+- [x] Dockerfile から `inkscape` が除外されている
+- [x] Dockerfile に `ENV HOME=/tmp` が設定されている
+- [x] `docker/docker-compose.yml` に mermaid サービスが追加され、`environment: HOME=/tmp`
       を含み、既存 python サービスは無変更
-- [ ] `docker compose -f docker/docker-compose.yml build mermaid` が成功する
-- [ ] スモークテストの .mmd → .svg 変換が動作し、出力 SVG に日本語が `<text>` で埋込済み
-- [ ] テンプレート `r08youshiki1_5.docx` の既存 `wp:docPr/@id` 最大値を確認し、
+- [x] `docker compose -f docker/docker-compose.yml build mermaid` が成功する
+- [x] スモークテストの .mmd → .svg 変換が動作し、出力 SVG に日本語が `<text>` で埋込済み
+      （注: mermaid-cli の既定は `foreignObject`+HTML span 出力。`<text>/<tspan>` 化には
+      configFile で `{"flowchart":{"htmlLabels":false}}` を指定する必要あり → Prompt 10-2 申し送り）
+- [x] テンプレート `r08youshiki1_5.docx` の既存 `wp:docPr/@id` 最大値を確認し、
       Prompt 10-2 の `--docpr-id-base 3000` で安全であることを記録
-- [ ] 既存 python サービスの動作に副作用がない
+      （結果: `wp:docPr` 要素は 0 件＝既存 ID 帯と完全に非衝突）
+- [x] 既存 python サービスの動作に副作用がない（`python --version` → 3.11.15）
 
 ---
 

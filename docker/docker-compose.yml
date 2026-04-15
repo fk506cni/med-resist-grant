@@ -8,3 +8,15 @@ services:
     working_dir: /workspace
     environment:
       - HOME=/tmp
+
+  mermaid:
+    build:
+      context: ./mermaid-svg
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace
+    working_dir: /workspace
+    environment:
+      - HOME=/tmp
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
