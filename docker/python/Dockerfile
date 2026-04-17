@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     fonts-noto-cjk \
     fontconfig \
+    librsvg2-bin \
     && rm -rf /var/lib/apt/lists/*
 
 # Update font cache

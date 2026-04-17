@@ -480,17 +480,17 @@ wrap_textbox.py をパイプラインに組み込みます。
 
 #### 完了チェック
 
-- [ ] build_narrative.sh に Phase A（mmd→svg→svg.png）が **md ループの外** で 1 回だけ
+- [x] build_narrative.sh に Phase A（mmd→svg→svg.png）が **md ループの外** で 1 回だけ
       実行されるよう追加されている
-- [ ] Phase A の glob は `shopt -s nullglob` で囲まれており、.mmd / .svg ゼロ件でも
+- [x] Phase A の glob は `shopt -s nullglob` で囲まれており、.mmd / .svg ゼロ件でも
       失敗しない
-- [ ] docker/python/Dockerfile に `librsvg2-bin` が追加され、コンテナ内で
+- [x] docker/python/Dockerfile に `librsvg2-bin` が追加され、コンテナ内で
       `rsvg-convert --version` が実行できる
-- [ ] PANDOC_OPTS に `--lua-filter=filters/textbox-minimal.lua` が追加されている
-- [ ] 変換後 wrap_textbox.py が **`--docpr-id-base` を narrative 別に分離して** 自動実行される
-- [ ] 現行本文（textbox なし）で `./scripts/build.sh narrative` が通り、document.xml diff
+- [x] PANDOC_OPTS に `--lua-filter=filters/textbox-minimal.lua` が追加されている
+- [x] 変換後 wrap_textbox.py が **`--docpr-id-base` を narrative 別に分離して** 自動実行される
+- [x] 現行本文（textbox なし）で `./scripts/build.sh narrative` が通り、document.xml diff
       が想定内
-- [ ] E2E テスト `RUNNER=docker DATA_DIR=data/dummy SETUP_DIR=data/dummy ./scripts/build.sh`
+- [x] E2E テスト `RUNNER=docker DATA_DIR=data/dummy SETUP_DIR=data/dummy ./scripts/build.sh`
       が通る（dummy には .mmd / .textbox を入れない前提）
 
 ---
