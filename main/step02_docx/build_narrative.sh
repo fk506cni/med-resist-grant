@@ -89,11 +89,15 @@ run_python() {
 # M12-03: 一時ファイルに書き出してから mv で確定することで、mmdc/rsvg-convert が
 #         中途失敗した際に stale な出力ファイルが残ることを防ぐ。
 # C12-01: ホストにツールが無い場合は silent skip ではなく fail で終了する。
+# N13-02: SIGINT / SIGTERM で関数が中断された場合にも tmp が残らないよう
+#         `trap ... RETURN` で cleanup する（EXIT は shell 全体用なので不適）。
 # mmdc: $1=入力 .mmd, $2=出力 .svg
 run_mermaid() {
     local mmd="$1" svg="$2"
     # mmdc は出力拡張子で形式判定するため tmp も .svg で終わらせる
     local tmp="${svg%.svg}.tmp.$$.svg"
+    # N13-02: 関数 return / ERR / 中断いずれの経路でも tmp を必ず削除
+    trap "rm -f '$tmp'" RETURN
     local ret=0
     if [[ "$MODE" == "docker" ]]; then
         docker compose -f docker/docker-compose.yml run --rm \
@@ -105,13 +109,11 @@ run_mermaid() {
         if ! command -v mmdc &>/dev/null; then
             echo "ERROR: mmdc がホストに見つかりません: $mmd" >&2
             echo "  --docker または --uv（docker 経由）での実行を試してください" >&2
-            rm -f "$tmp"
             return 1
         fi
         mmdc -i "$mmd" -o "$tmp" || ret=$?
     fi
     if [[ $ret -ne 0 ]]; then
-        rm -f "$tmp"
         return $ret
     fi
     mv "$tmp" "$svg"
@@ -122,6 +124,8 @@ run_rsvg_convert() {
     local svg="$1" png="$2"
     # rsvg-convert は出力拡張子で形式判定するため tmp も .png で終わらせる
     local tmp="${png%.png}.tmp.$$.png"
+    # N13-02: 関数 return / ERR / 中断いずれの経路でも tmp を必ず削除
+    trap "rm -f '$tmp'" RETURN
     local ret=0
     if [[ "$MODE" == "docker" ]]; then
         docker compose -f docker/docker-compose.yml run --rm \
@@ -131,13 +135,11 @@ run_rsvg_convert() {
         if ! command -v rsvg-convert &>/dev/null; then
             echo "ERROR: rsvg-convert がホストに見つかりません: $svg" >&2
             echo "  librsvg2-bin をインストールするか --docker での実行を試してください" >&2
-            rm -f "$tmp"
             return 1
         fi
         rsvg-convert -d 300 -p 300 "$svg" -o "$tmp" || ret=$?
     fi
     if [[ $ret -ne 0 ]]; then
-        rm -f "$tmp"
         return $ret
     fi
     mv "$tmp" "$png"
@@ -241,10 +243,21 @@ mmd_files=( "$FIGS_DIR"/*.mmd )
 shopt -u nullglob
 
 # N12-06: bash 3.2 互換のため空配列を参照する前に要素数をガード
+# N13-02: 過去ビルド中断で `.tmp.$$.svg` / `.tmp.$$.png` 残骸が残っている場合、
+#         `*.svg` glob が tmp を picking up する。Phase A 突入前に掃除する。
+shopt -s nullglob
+for stale in "$FIGS_DIR"/*.tmp.*.svg "$FIGS_DIR"/*.tmp.*.png; do
+    echo "  cleanup stale tmp: $stale"
+    rm -f "$stale"
+done
+shopt -u nullglob
+
+# N13-04: mtime のみの up-to-date 判定は 0byte / 破損ファイルを skip 扱いする。
+#         `-s` で「存在かつ size > 0」を確認する。
 if (( ${#mmd_files[@]} > 0 )); then
     for mmd in "${mmd_files[@]}"; do
         svg="${mmd%.mmd}.svg"
-        if [[ ! -f "$svg" ]] || [[ "$mmd" -nt "$svg" ]]; then
+        if [[ ! -s "$svg" ]] || [[ "$mmd" -nt "$svg" ]]; then
             echo "  mermaid: $mmd → $svg"
             run_mermaid "$mmd" "$svg"
         else
@@ -254,6 +267,7 @@ if (( ${#mmd_files[@]} > 0 )); then
 fi
 
 # .svg → .svg.png (pandoc に primary blip として PNG を渡すための前処理)
+# N13-02: tmp 残骸は上で掃除済みなので `*.svg` glob は安全。
 shopt -s nullglob
 svg_files=( "$FIGS_DIR"/*.svg )
 shopt -u nullglob
@@ -261,7 +275,7 @@ shopt -u nullglob
 if (( ${#svg_files[@]} > 0 )); then
     for svg in "${svg_files[@]}"; do
         png="${svg}.png"
-        if [[ ! -f "$png" ]] || [[ "$svg" -nt "$png" ]]; then
+        if [[ ! -s "$png" ]] || [[ "$svg" -nt "$png" ]]; then
             echo "  rsvg-convert: $svg → $png"
             run_rsvg_convert "$svg" "$png"
         else

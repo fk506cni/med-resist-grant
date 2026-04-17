@@ -93,9 +93,20 @@ def extract_root_tag(xml_bytes, tag_local="document"):
     return m.group(0) if m else None
 
 
-def restore_root_tag(new_xml_bytes, original_root_tag, tag_local="document"):
+def restore_root_tag(new_xml_bytes, original_root_tag, tag_local="document",
+                     extra_ignorable=()):
     """Replace the re-serialized root element tag with the original one,
-    merging any new namespace declarations added during processing."""
+    merging any new namespace declarations added during processing.
+
+    M13-01: `mc:Ignorable` 属性もトークンの和集合で merge する。narrative 側で
+    wrap_textbox が `mc:Ignorable="wps"` を設定していても、単純に template の
+    `mc:Ignorable="w14 wp14"` で上書きしてしまうと `wps` が脱落し、strict parser が
+    wps:wsp を未知要素として扱うリスクがあるため。
+
+    ``extra_ignorable``: body 転送時に失われる narrative 側の mc:Ignorable トークンを
+    明示的に補完するための呼出元指定。body に wps:wsp / asvg:svgBlob 等が含まれる
+    場合、対応する prefix を渡すこと。
+    """
     if not original_root_tag:
         return new_xml_bytes
     xml_str = new_xml_bytes.decode("utf-8")
@@ -104,8 +115,10 @@ def restore_root_tag(new_xml_bytes, original_root_tag, tag_local="document"):
     if not new_m:
         return new_xml_bytes
 
+    new_root_tag = new_m.group(0)
+
     # Merge namespace declarations: keep original, add any new ones
-    new_ns = dict(re.findall(r'xmlns:(\w+)="([^"]*)"', new_m.group(0)))
+    new_ns = dict(re.findall(r'xmlns:(\w+)="([^"]*)"', new_root_tag))
     orig_ns = dict(re.findall(r'xmlns:(\w+)="([^"]*)"', original_root_tag))
 
     merged_tag = original_root_tag
@@ -113,8 +126,44 @@ def restore_root_tag(new_xml_bytes, original_root_tag, tag_local="document"):
         if prefix not in orig_ns:
             merged_tag = merged_tag[:-1] + f' xmlns:{prefix}="{uri}">'
 
+    # M13-01: mc:Ignorable の値を和集合で merge
+    ig_re = re.compile(r'\bmc:Ignorable\s*=\s*"([^"]*)"')
+    orig_ig = ig_re.search(merged_tag)
+    new_ig = ig_re.search(new_root_tag)
+    orig_tokens = orig_ig.group(1).split() if orig_ig else []
+    new_tokens = new_ig.group(1).split() if new_ig else []
+    merged_tokens = list(orig_tokens)
+    for t in list(new_tokens) + list(extra_ignorable):
+        if t not in merged_tokens:
+            merged_tokens.append(t)
+    if merged_tokens:
+        merged_value = " ".join(merged_tokens)
+        if orig_ig:
+            merged_tag = merged_tag.replace(
+                orig_ig.group(0), f'mc:Ignorable="{merged_value}"'
+            )
+        else:
+            merged_tag = merged_tag[:-1] + f' mc:Ignorable="{merged_value}">'
+
     xml_str = re.sub(pattern, lambda _: merged_tag, xml_str, count=1)
     return xml_str.encode("utf-8")
+
+
+def _detect_required_ignorable(root):
+    """Scan body for elements whose namespaces need mc:Ignorable entries.
+
+    M13-01: narrative 側で wps:wsp / asvg:svgBlob を使っている場合、template の
+    mc:Ignorable に `wps` が含まれていないと strict parser で未知要素扱いされる。
+    body 内に該当要素があるかを検出し、必要な prefix を返す。
+    """
+    WPS_URI = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+    needed = []
+    for e in root.iter():
+        if e.tag.startswith(f"{{{WPS_URI}}}"):
+            if "wps" not in needed:
+                needed.append("wps")
+            break
+    return needed
 
 
 def serialize_xml(root):
@@ -548,8 +597,37 @@ def merge_styles(target_parts, src_parts):
 # Content Types merge
 # ============================================================================
 
+# C13-01: 既知の画像拡張子 → Content-Type の対応表。narrative 側が Override で
+# jpg/png を登録しているケース（Pandoc 流儀）でも、target 側で拡張子ベースの
+# Default に昇格させることで「Content-Type 未登録の media Part」を防ぐ。
+_MEDIA_CONTENT_TYPES = {
+    "jpg":  "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png":  "image/png",
+    "gif":  "image/gif",
+    "svg":  "image/svg+xml",
+    "webp": "image/webp",
+    "bmp":  "image/bmp",
+    "tif":  "image/tiff",
+    "tiff": "image/tiff",
+}
+
+
 def merge_content_types(target_parts, src_parts):
-    """Add any new media extensions from source to target [Content_Types].xml."""
+    """Merge Content-Type registrations from source into target.
+
+    C13-01: narrative docx は Pandoc 流儀で `<Override PartName="/word/media/rId23.jpg"
+    ContentType="image/jpeg"/>` のように **Override** で jpg/png を登録する。一方
+    template の `<Default Extension="jpeg"/>` は `.jpg` にマッチしないため、単純に
+    Default のみコピーすると `/word/media/*.jpg` と `/word/media/*.png` の
+    Content-Type が **完全に失われる**（Word は修復ダイアログを出す）。
+
+    対策:
+    1. source の Default をコピー（従来通り）
+    2. source の Override もコピー（narrative 側の jpg/png Override を保全）
+    3. target_parts 内の `word/media/*` を走査し、拡張子が未カバーなら
+       `_MEDIA_CONTENT_TYPES` から Default を自動補完
+    """
     ET.register_namespace("", CT_NS)
     tgt_root = ET.fromstring(target_parts["[Content_Types].xml"])
 
@@ -557,7 +635,12 @@ def merge_content_types(target_parts, src_parts):
         d.get("Extension", "").lower()
         for d in tgt_root.findall(f"{{{CT_NS}}}Default")
     }
+    existing_overrides = {
+        o.get("PartName", "")
+        for o in tgt_root.findall(f"{{{CT_NS}}}Override")
+    }
 
+    # 1. Default merge（従来）
     src_root = ET.fromstring(src_parts["[Content_Types].xml"])
     for d in src_root.findall(f"{{{CT_NS}}}Default"):
         ext = d.get("Extension", "")
@@ -567,7 +650,82 @@ def merge_content_types(target_parts, src_parts):
             new_d.set("ContentType", d.get("ContentType", ""))
             existing_exts.add(ext.lower())
 
+    # 2. Override merge — narrative 側の /word/media/*.jpg 等を保全
+    for o in src_root.findall(f"{{{CT_NS}}}Override"):
+        part_name = o.get("PartName", "")
+        if not part_name.startswith("/word/media/"):
+            continue  # 本文・スタイル等は target 側で既に定義済み
+        if part_name in existing_overrides:
+            continue
+        new_o = ET.SubElement(tgt_root, f"{{{CT_NS}}}Override")
+        new_o.set("PartName", part_name)
+        new_o.set("ContentType", o.get("ContentType", ""))
+        existing_overrides.add(part_name)
+
+    # 3. 拡張子ベース Default 自動補完
+    #    copy_media が rename を行った場合や、source が Override でカバーしていない
+    #    media に対する防御線。実際に target_parts に存在する media の拡張子のみを
+    #    対象とすることで、不要な Default 追加を避ける。
+    media_exts = set()
+    for fn in target_parts:
+        if not fn.startswith("word/media/"):
+            continue
+        _, ext = os.path.splitext(fn)
+        if ext.startswith("."):
+            media_exts.add(ext[1:].lower())
+
+    for ext in sorted(media_exts):
+        if ext in existing_exts:
+            continue
+        ct = _MEDIA_CONTENT_TYPES.get(ext)
+        if ct is None:
+            # 未知拡張子は Override がある前提で skip（なければ後続で verify）
+            continue
+        new_d = ET.SubElement(tgt_root, f"{{{CT_NS}}}Default")
+        new_d.set("Extension", ext)
+        new_d.set("ContentType", ct)
+        existing_exts.add(ext)
+
     target_parts["[Content_Types].xml"] = serialize_xml(tgt_root)
+
+
+def verify_media_content_types(target_parts):
+    """Fail loudly if any /word/media/* has no Content-Type (Default or Override).
+
+    C13-01 の fix が実質機能していることを inject 最終段で検証する。ECMA-376 OPC
+    §8 違反（Content-Type 未登録 Part）を silent に通過させない。
+    """
+    ct_root = ET.fromstring(target_parts["[Content_Types].xml"])
+    exts_covered = {
+        d.get("Extension", "").lower()
+        for d in ct_root.findall(f"{{{CT_NS}}}Default")
+    }
+    overrides_covered = {
+        o.get("PartName", "")
+        for o in ct_root.findall(f"{{{CT_NS}}}Override")
+    }
+
+    missing = []
+    for fn in target_parts:
+        if not fn.startswith("word/media/"):
+            continue
+        _, ext = os.path.splitext(fn)
+        ext = ext[1:].lower() if ext.startswith(".") else ""
+        part_name = "/" + fn
+        if ext in exts_covered:
+            continue
+        if part_name in overrides_covered:
+            continue
+        missing.append(fn)
+
+    if missing:
+        print(
+            f"ERROR: [Content_Types].xml に Content-Type 登録の無い media Part があります:\n"
+            + "\n".join(f"  - {m}" for m in missing)
+            + "\n  merge_content_types の拡張子対応表を更新してください。",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 # ============================================================================
@@ -579,8 +737,13 @@ def _merge_notes(target_parts, src_parts, body_elements, note_type):
 
     note_type: "footnote" or "endnote"
     Skip if source has no real notes (only separator/continuationSeparator).
+
+    M13-04: `word/_rels/{note_type}s.xml.rels` も同時に merge する。脚注内に
+    ハイパーリンクや画像が含まれる場合、rels が orphan になると Word で
+    リンク切れ / 画像欠落が発生するため、document.xml と同様に rId 再採番を行う。
     """
     xml_path = f"word/{note_type}s.xml"
+    rels_path = f"word/_rels/{note_type}s.xml.rels"
     tag_local = f"{note_type}s"
     note_tag = f"{W}{note_type}"
     ref_tag = f"{W}{note_type}Reference"
@@ -621,6 +784,43 @@ def _merge_notes(target_parts, src_parts, body_elements, note_type):
             old_id = ref.get(f"{W}id")
             if old_id and old_id in id_map:
                 ref.set(f"{W}id", id_map[old_id])
+
+    # M13-04: note rels（hyperlink / image）を target に merge して rId 再採番
+    if rels_path in src_parts:
+        ET.register_namespace("", RELS_NS)
+        src_rels_root = ET.fromstring(src_parts[rels_path])
+        copy_rels = [r for r in src_rels_root
+                     if r.get("Type", "") in _COPY_REL_TYPES]
+        if copy_rels:
+            if rels_path in target_parts:
+                tgt_rels_root = ET.fromstring(target_parts[rels_path])
+            else:
+                tgt_rels_root = ET.Element(f"{{{RELS_NS}}}Relationships")
+            max_rid = _get_max_rid(tgt_rels_root)
+            note_rid_map = {}
+            for rel in copy_rels:
+                old_rid = rel.get("Id")
+                max_rid += 1
+                new_rid = f"rId{max_rid}"
+                note_rid_map[old_rid] = new_rid
+                new_rel = ET.SubElement(tgt_rels_root, "Relationship")
+                new_rel.set("Id", new_rid)
+                new_rel.set("Type", rel.get("Type", ""))
+                new_rel.set("Target", rel.get("Target", ""))
+                if rel.get("TargetMode"):
+                    new_rel.set("TargetMode", rel.get("TargetMode"))
+            # note 本体の rId も書き換え
+            r_attrs = [f"{R}id", f"{R}embed", f"{R}link"]
+            for n in real_notes:
+                for node in n.iter():
+                    for attr in r_attrs:
+                        val = node.get(attr)
+                        if val and val in note_rid_map:
+                            node.set(attr, note_rid_map[val])
+            rels_buf = BytesIO()
+            ET.ElementTree(tgt_rels_root).write(
+                rels_buf, xml_declaration=True, encoding="UTF-8")
+            target_parts[rels_path] = rels_buf.getvalue()
 
     new_xml = serialize_xml(tgt_root)
     new_xml = restore_root_tag(new_xml, tgt_root_tag, tag_local)
@@ -754,6 +954,9 @@ def process(template_path, youshiki12_path, youshiki13_path, output_path):
     merge_content_types(tgt_parts, src12_parts)
     merge_content_types(tgt_parts, src13_parts)
 
+    # C13-01: media Part の Content-Type カバレッジを最終検証。
+    verify_media_content_types(tgt_parts)
+
     # --- Inject narratives into body ---
     # Process 1-3 FIRST (higher indices) to preserve lower indices for 1-2
     print("Injecting narratives...")
@@ -813,9 +1016,15 @@ def process(template_path, youshiki12_path, youshiki13_path, output_path):
         print(f"  docPr uniqueness OK ({len(docpr_ids)} ids, incl. header/footer)")
 
     # --- Serialize document.xml with root tag restoration ---
+    # M13-01: narrative 由来の wps:wsp / asvg 要素が body に含まれる場合は
+    #         mc:Ignorable に該当 prefix を補完する。
     print("\nSerializing...")
+    extra_ignorable = _detect_required_ignorable(root)
+    if extra_ignorable:
+        print(f"  mc:Ignorable に追加: {' '.join(extra_ignorable)}")
     new_xml = serialize_xml(root)
-    new_xml = restore_root_tag(new_xml, original_root_tag, "document")
+    new_xml = restore_root_tag(new_xml, original_root_tag, "document",
+                               extra_ignorable=extra_ignorable)
     tgt_parts["word/document.xml"] = new_xml
 
     # --- Atomic write: temp file → rename ---

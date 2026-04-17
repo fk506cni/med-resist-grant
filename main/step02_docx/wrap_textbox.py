@@ -482,20 +482,20 @@ def embed_svg_native(root, parts, source_md_path, skip_missing=False):
 
     blips = list(root.iter(f"{A}blip"))
 
-    # M11-02: fail loudly if md-side and document-side image counts
-    # diverge — that means either the md parser missed a reference-style
-    # image or pandoc produced extra/fewer drawings than expected. A
-    # K-th misalignment would silently route the asvg extension to the
-    # wrong image. Only a count mismatch is detectable without a full
-    # AST, but it catches the most common failure mode.
+    # M11-02 / M13-05 / N13-07: md 側と docx 側の画像数が一致しない場合、
+    # K-th alignment がズレて asvg 拡張を誤った画像に貼ってしまう。
+    # pandoc の画像解決 WARNING (`[WARNING] Could not fetch resource ...`) は
+    # exit 0 で通過するため、ここが silent 欠落の最後の検出点となる。
+    # 従来は WARNING のみで継続していたが、実地 Prompt 10-4 で silent 欠落が
+    # 顕在化したため hard fail に格上げする（report13 M13-05/N13-07）。
     if len(image_paths) != len(blips):
-        print(
-            f"  WARNING: markdown image count ({len(image_paths)}) does "
-            f"not match document.xml a:blip count ({len(blips)}). "
-            f"SVG embedding may attach to the wrong image. "
-            f"Investigate {source_md_path} for reference-style images, "
-            f"HTML images, or images inside raw blocks.",
-            file=sys.stderr,
+        raise ValueError(
+            f"markdown image count ({len(image_paths)}) does not match "
+            f"document.xml a:blip count ({len(blips)}) in {source_md_path}. "
+            f"Pandoc が画像解決に失敗（図ファイル欠落・タイポ・resource-path 設定漏れ）"
+            f"したか、md に reference-style image や raw HTML image が含まれています。"
+            f"pandoc の stderr を確認し、`[WARNING] Could not fetch resource` が無いか"
+            f"チェックしてください。"
         )
 
     RELS_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
@@ -544,6 +544,25 @@ def embed_svg_native(root, parts, source_md_path, skip_missing=False):
 
         with open(svg_full_path, "rb") as f:
             svg_data = f.read()
+
+        # M13-03: .svg と .svg.png の mtime が整合しているか検査する。
+        # Phase A は 2 段階 mtime 比較で独立に up-to-date 判定するため、
+        # 外部要因（rclone --preserve-modtime / 手動 git checkout 等）で
+        # .svg.png だけ過去に巻き戻された場合、docx 内の primary blip (PNG) が
+        # 旧版・asvg:svgBlob (SVG) が新版の silent 劣化が発生する。ここで
+        # .svg の mtime が .svg.png より新しければ hard fail して再ビルドを強制。
+        png_path = svg_full_path + ".png"
+        if os.path.isfile(png_path):
+            svg_mtime = os.path.getmtime(svg_full_path)
+            png_mtime = os.path.getmtime(png_path)
+            if svg_mtime > png_mtime:
+                raise ValueError(
+                    f"{svg_full_path} is newer than {png_path}. primary blip (PNG) "
+                    f"and asvg:svgBlob (SVG) would encode different versions of the "
+                    f"same figure. Re-run Phase A (`bash main/step02_docx/build_narrative.sh`) "
+                    f"after deleting {png_path}, or touch the source `.mmd` to trigger "
+                    f"regeneration."
+                )
 
         # M11-05: refuse to embed a mermaid SVG that still contains
         # <foreignObject> — Word silently renders those as blank
