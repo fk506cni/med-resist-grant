@@ -27,6 +27,10 @@ data/products/*
 main/*/output/*
 !main/*/output/.gitkeep
 
+# --- 図ビルド成果物 (.mmd はソースとして管理、.svg / .svg.png はビルド生成物) ---
+main/step01_narrative/figs/*.svg
+main/step01_narrative/figs/*.svg.png
+
 # --- 生成物・一時ファイル ---
 *.html
 !README.html

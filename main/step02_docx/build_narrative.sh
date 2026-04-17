@@ -29,6 +29,7 @@ PANDOC_OPTS=(
     --to docx
     "--reference-doc=$REFERENCE_DOC"
     --lua-filter=filters/textbox-minimal.lua
+    --resource-path=main/step01_narrative
 )
 
 FIGS_DIR="main/step01_narrative/figs"
@@ -91,7 +92,8 @@ run_python() {
 # mmdc: $1=入力 .mmd, $2=出力 .svg
 run_mermaid() {
     local mmd="$1" svg="$2"
-    local tmp="${svg}.tmp.$$"
+    # mmdc は出力拡張子で形式判定するため tmp も .svg で終わらせる
+    local tmp="${svg%.svg}.tmp.$$.svg"
     local ret=0
     if [[ "$MODE" == "docker" ]]; then
         docker compose -f docker/docker-compose.yml run --rm \
@@ -118,7 +120,8 @@ run_mermaid() {
 # rsvg-convert: $1=入力 .svg, $2=出力 .png (300dpi)
 run_rsvg_convert() {
     local svg="$1" png="$2"
-    local tmp="${png}.tmp.$$"
+    # rsvg-convert は出力拡張子で形式判定するため tmp も .png で終わらせる
+    local tmp="${png%.png}.tmp.$$.png"
     local ret=0
     if [[ "$MODE" == "docker" ]]; then
         docker compose -f docker/docker-compose.yml run --rm \
