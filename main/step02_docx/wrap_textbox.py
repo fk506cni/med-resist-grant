@@ -584,7 +584,12 @@ def embed_svg_native(root, parts, source_md_path, skip_missing=False):
 
         max_rid += 1
         new_rid = f"rId{max_rid}"
-        rel_el = ET.SubElement(rels_root, "Relationship")
+        # M14-01: use fully-qualified tag so the new Relationship stays in
+        # RELS_NS even after a later register_namespace("", CT_NS) wipes
+        # the default-prefix binding. Without this, pandoc rels get
+        # reserialized with ns0: prefix while the bare <Relationship>
+        # lands in no namespace, which Word 2016+ opens as "corrupt".
+        rel_el = ET.SubElement(rels_root, f"{{{RELS_NS}}}Relationship")
         rel_el.set("Id", new_rid)
         rel_el.set("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image")
         rel_el.set("Target", f"media/svg{svg_counter}.svg")
@@ -608,7 +613,12 @@ def embed_svg_native(root, parts, source_md_path, skip_missing=False):
                     has_svg_ct = True
                     break
             if not has_svg_ct:
-                ct_default = ET.SubElement(ct_root, "Default")
+                # M14-01: mirror the fully-qualified tag fix from the rels
+                # branch. CT currently uses a default xmlns so a bare
+                # <Default> happens to inherit CT_NS, but another module
+                # calling register_namespace("", <other>) later would
+                # break that. Stay robust regardless of prefix state.
+                ct_default = ET.SubElement(ct_root, f"{{{CT_NS}}}Default")
                 ct_default.set("Extension", "svg")
                 ct_default.set("ContentType", "image/svg+xml")
             svg_ct_added = True
