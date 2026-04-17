@@ -38,6 +38,8 @@ NSMAP = {
     "o": "urn:schemas-microsoft-com:office:office",
     "v": "urn:schemas-microsoft-com:vml",
     "w10": "urn:schemas-microsoft-com:office:word",
+    "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
+    "w15": "http://schemas.microsoft.com/office/word/2012/wordml",
     "pic": "http://schemas.openxmlformats.org/drawingml/2006/picture",
     "wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
     "asvg": "http://schemas.microsoft.com/office/drawing/2016/SVG/main",
@@ -53,6 +55,7 @@ WPS = "{http://schemas.microsoft.com/office/word/2010/wordprocessingShape}"
 A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
 ASVG = "{http://schemas.microsoft.com/office/drawing/2016/SVG/main}"
 R = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+PIC = "{http://schemas.openxmlformats.org/drawingml/2006/picture}"
 
 
 # ============================================================================
@@ -98,26 +101,41 @@ def parse_attrs(text):
 # ============================================================================
 
 def resize_images_in_content(content_elements, max_width_emu):
-    """Resize inline images in content to fit within max_width_emu."""
+    """Resize inline images in content to fit within max_width_emu.
+
+    Updates both the outer wp:inline/wp:extent (which Word uses for
+    layout) and the inner a:xfrm/a:ext (which DrawingML uses for the
+    picture frame). Only the dimensional a:ext inside the xfrm is
+    touched — the URI-tagged a:ext inside a:extLst (used by the
+    asvg:svgBlob extension) is never rewritten because we address the
+    xfrm/ext explicitly rather than iter()ing over every a:ext
+    descendant (N11-03).
+    """
+    xfrm_ext_path = (
+        f"{A}graphic/{A}graphicData/{PIC}pic/{PIC}spPr/{A}xfrm/{A}ext"
+    )
     for elem in content_elements:
         for inline in elem.iter(f"{WP}inline"):
             ext = inline.find(f"{WP}extent")
-            if ext is not None:
-                cx = int(ext.get("cx", "0"))
-                cy = int(ext.get("cy", "0"))
-                if cx > max_width_emu and cx > 0:
-                    ratio = max_width_emu / cx
-                    new_cx = max_width_emu
-                    new_cy = int(cy * ratio)
-                    ext.set("cx", str(new_cx))
-                    ext.set("cy", str(new_cy))
-                    for a_ext in inline.iter(f"{A}ext"):
-                        a_cx = int(a_ext.get("cx", "0"))
-                        a_cy = int(a_ext.get("cy", "0"))
-                        if a_cx > max_width_emu and a_cx > 0:
-                            a_ratio = max_width_emu / a_cx
-                            a_ext.set("cx", str(max_width_emu))
-                            a_ext.set("cy", str(int(a_cy * a_ratio)))
+            if ext is None:
+                continue
+            cx = int(ext.get("cx", "0"))
+            cy = int(ext.get("cy", "0"))
+            if cx <= 0 or cx <= max_width_emu:
+                continue
+            ratio = max_width_emu / cx
+            new_cx = max_width_emu
+            new_cy = int(cy * ratio)
+            ext.set("cx", str(new_cx))
+            ext.set("cy", str(new_cy))
+            xfrm_ext = inline.find(xfrm_ext_path)
+            if xfrm_ext is not None:
+                a_cx = int(xfrm_ext.get("cx", "0"))
+                a_cy = int(xfrm_ext.get("cy", "0"))
+                if a_cx > 0:
+                    a_ratio = max_width_emu / a_cx
+                    xfrm_ext.set("cx", str(max_width_emu))
+                    xfrm_ext.set("cy", str(int(a_cy * a_ratio)))
 
 
 # ============================================================================
@@ -312,18 +330,21 @@ def restore_root_tag(new_xml_bytes, original_root_tag):
     if "wp14" not in orig_ns_decls:
         merged_tag = merged_tag[:-1] + f' xmlns:wp14="{WP14_URI}">'
 
-    if "mc:Ignorable" not in merged_tag:
-        merged_tag = merged_tag[:-1] + ' mc:Ignorable="wps wp14">'
+    # N11-05: use word-boundary match so an unrelated attribute containing
+    #         the substring "mc:Ignorable" cannot cause a false positive.
+    # N11-06: only wps is actually an Ignorable extension; wp14 is consumed
+    #         by Word 2010+ directly.
+    ig_attr_re = re.compile(r'\bmc:Ignorable\s*=\s*"([^"]*)"')
+    ig_m = ig_attr_re.search(merged_tag)
+    if ig_m is None:
+        merged_tag = merged_tag[:-1] + ' mc:Ignorable="wps">'
     else:
-        ig_m = re.search(r'mc:Ignorable="([^"]*)"', merged_tag)
-        if ig_m:
-            ignorable = ig_m.group(1).split()
-            for ns in ["wps", "wp14"]:
-                if ns not in ignorable:
-                    ignorable.append(ns)
-            merged_tag = merged_tag.replace(
-                ig_m.group(0), f'mc:Ignorable="{" ".join(ignorable)}"'
-            )
+        ignorable = ig_m.group(1).split()
+        if "wps" not in ignorable:
+            ignorable.append("wps")
+        merged_tag = merged_tag.replace(
+            ig_m.group(0), f'mc:Ignorable="{" ".join(ignorable)}"'
+        )
 
     xml_str = re.sub(
         r"<([a-zA-Z][a-zA-Z0-9]*:)?document\s[^>]*>",
@@ -338,35 +359,109 @@ def restore_root_tag(new_xml_bytes, original_root_tag):
 # SVG native embedding (asvg:svgBlob)
 # ============================================================================
 
+_FENCE_OPEN_RE = re.compile(r'^(\s*)([`~])\2{2,}')
+
+
 def _strip_yaml_and_code(md_text):
-    """Remove YAML front matter and fenced code blocks from markdown text."""
+    """Remove YAML front matter, fenced code, inline code, and HTML
+    comments from markdown text.
+
+    C11-01: the original `r'```[^`]*```'` silently failed for 4-backtick
+    fences, ~~~ fences, inline code, and HTML comments. We now:
+
+    1. Normalize CRLF → LF (N11-04).
+    2. Strip YAML front matter once at the top.
+    3. Strip HTML comments greedily-but-non-nested.
+    4. Strip fenced code blocks **line-by-line**, tracking the opening
+       fence char and count so the closer must match or exceed it.
+    5. Strip inline code spans last (they cannot span multiple lines).
+
+    The result is not a perfect Markdown parse — it is only meant to
+    suppress false-positive image references that ``embed_svg_native``
+    would otherwise pick up.
+    """
+    md_text = md_text.replace('\r\n', '\n').replace('\r', '\n')
+
     md_text = re.sub(r'^---\n.*?\n---\n', '', md_text, count=1, flags=re.DOTALL)
-    md_text = re.sub(r'```[^`]*```', '', md_text, flags=re.DOTALL)
+    md_text = re.sub(r'<!--.*?-->', '', md_text, flags=re.DOTALL)
+
+    out_lines = []
+    fence = None  # (char, min_count) while inside a fence
+    for line in md_text.split('\n'):
+        m = _FENCE_OPEN_RE.match(line)
+        if fence is None:
+            if m:
+                fence = (m.group(2), len(m.group(0)) - len(m.group(1)))
+                continue  # drop the opener
+            out_lines.append(line)
+        else:
+            if m and m.group(2) == fence[0] \
+                    and (len(m.group(0)) - len(m.group(1))) >= fence[1]:
+                fence = None
+            # inside a fence (and on the closer) — drop the line
+    md_text = '\n'.join(out_lines)
+
+    md_text = re.sub(r'`[^`\n]*`', '', md_text)
+
     return md_text
 
 
-def embed_svg_native(root, parts, source_md_path):
+_IMAGE_RE = re.compile(
+    # ![alt](url)  — non-greedy alt with escape handling, DOTALL for
+    # multi-line alt text; supports bare URLs and <angle-bracket> URLs.
+    # Reference-style images (![alt][ref]) are intentionally NOT matched
+    # — the K-th alignment check in embed_svg_native will fail loudly
+    # if one slips through.
+    r'!\[(?:[^\]\\]|\\.)*?\]'
+    r'\('
+    r'(?:'
+    r'<(?P<angle>[^>\n]+)>'
+    r'|'
+    r'(?P<bare>[^)\s]+)'
+    r')',
+    flags=re.DOTALL,
+)
+
+
+def _extract_image_paths(md_text):
+    """Return the ordered list of image paths referenced in md_text."""
+    paths = []
+    for m in _IMAGE_RE.finditer(md_text):
+        paths.append(m.group("angle") or m.group("bare"))
+    return paths
+
+
+def embed_svg_native(root, parts, source_md_path, skip_missing=False):
     """Embed SVG files natively using Office 2016+ asvg:svgBlob extension.
 
     K-th image in source markdown → K-th a:blip element in document.xml.
     SVG paths are resolved **relative to the source markdown's directory**
     (NOT CWD — the CWD-based version in next-gen-comp-paper silently
-    failed when build_narrative.sh chdir'd to project root). Missing
-    files raise FileNotFoundError so CI catches the breakage.
+    failed when build_narrative.sh chdir'd to project root).
+
+    Missing SVG files raise FileNotFoundError by default so CI catches
+    the breakage. Pass ``skip_missing=True`` (CLI: ``--skip-missing-svg``)
+    to emit a warning and skip instead — intended for in-progress local
+    builds where not all figures have been drawn yet (M11-03).
+
+    M11-05: every SVG is scanned for ``<foreignObject>`` before embedding.
+    Mermaid-cli with ``htmlLabels:false`` should never emit one; if it
+    does (e.g. for a classDiagram / stateDiagram we have not configured)
+    we fail loudly rather than let Word silently render blank rectangles.
     """
 
     with open(source_md_path, "r", encoding="utf-8") as f:
         md_text = f.read()
 
     md_text = _strip_yaml_and_code(md_text)
-    image_paths = re.findall(r'!\[.*?\]\(([^)\s]+)', md_text)
+    image_paths = _extract_image_paths(md_text)
 
     if not image_paths:
         return
 
     svg_images = []
     for idx, path in enumerate(image_paths):
-        if path.endswith(".svg"):
+        if path.lower().endswith(".svg"):
             svg_images.append((idx, path))
 
     if not svg_images:
@@ -375,6 +470,22 @@ def embed_svg_native(root, parts, source_md_path):
     print(f"Found {len(svg_images)} SVG image(s) to embed natively")
 
     blips = list(root.iter(f"{A}blip"))
+
+    # M11-02: fail loudly if md-side and document-side image counts
+    # diverge — that means either the md parser missed a reference-style
+    # image or pandoc produced extra/fewer drawings than expected. A
+    # K-th misalignment would silently route the asvg extension to the
+    # wrong image. Only a count mismatch is detectable without a full
+    # AST, but it catches the most common failure mode.
+    if len(image_paths) != len(blips):
+        print(
+            f"  WARNING: markdown image count ({len(image_paths)}) does "
+            f"not match document.xml a:blip count ({len(blips)}). "
+            f"SVG embedding may attach to the wrong image. "
+            f"Investigate {source_md_path} for reference-style images, "
+            f"HTML images, or images inside raw blocks.",
+            file=sys.stderr,
+        )
 
     RELS_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
     ET.register_namespace("", RELS_NS)
@@ -410,12 +521,32 @@ def embed_svg_native(root, parts, source_md_path):
 
         svg_full_path = os.path.normpath(os.path.join(src_dir, svg_path))
         if not os.path.isfile(svg_full_path):
+            if skip_missing:
+                print(
+                    f"  SKIP: {svg_path} (missing; asvg layer skipped)",
+                    file=sys.stderr,
+                )
+                continue
             raise FileNotFoundError(
                 f"SVG referenced in {source_md_path} not found: {svg_full_path}"
             )
 
         with open(svg_full_path, "rb") as f:
             svg_data = f.read()
+
+        # M11-05: refuse to embed a mermaid SVG that still contains
+        # <foreignObject> — Word silently renders those as blank
+        # rectangles. htmlLabels:false should prevent this for
+        # flowchart / sequenceDiagram; new diagram types may need
+        # additional config (see plan2.md §5.2).
+        if b"<foreignObject" in svg_data:
+            raise ValueError(
+                f"{svg_full_path}: SVG contains <foreignObject>. Word "
+                f"will render the labels as blank rectangles. Re-run "
+                f"mermaid with htmlLabels:false (or the equivalent "
+                f"per-diagram setting) so labels are emitted as plain "
+                f"<text>/<tspan>."
+            )
 
         svg_counter += 1
         svg_media_path = f"word/media/svg{svg_counter}.svg"
@@ -465,11 +596,13 @@ def embed_svg_native(root, parts, source_md_path):
 # Main pipeline
 # ============================================================================
 
-def process_docx(docx_path, source_md=None, no_relocate=True, docpr_id_base=3000):
+def process_docx(docx_path, source_md=None, docpr_id_base=3000,
+                 skip_missing_svg=False):
     """Process the docx file, replacing TextBoxMarker regions with text boxes.
 
-    ``no_relocate`` defaults to True (page-based relocation is unused in
-    med-resist-grant); the flag is kept only for interface parity.
+    Page-based relocation (``relocate_textbox_by_page`` in
+    next-gen-comp-paper) is intentionally not ported; the grant
+    narratives use natural flow positioning only.
     """
     with zipfile.ZipFile(docx_path, "r") as zin:
         parts = {}
@@ -487,7 +620,7 @@ def process_docx(docx_path, source_md=None, no_relocate=True, docpr_id_base=3000
         sys.exit(1)
 
     if source_md:
-        embed_svg_native(root, parts, source_md)
+        embed_svg_native(root, parts, source_md, skip_missing=skip_missing_svg)
 
     children = list(body)
 
@@ -554,15 +687,19 @@ if __name__ == "__main__":
         description="Post-process Pandoc docx: wrap TextBoxMarker regions in text boxes")
     parser.add_argument("docx", help="Path to docx file")
     parser.add_argument("--source", help="Source markdown for SVG embedding")
-    parser.add_argument("--no-relocate", action="store_true", default=True,
-                        help="Skip page-based relocation (default: True; kept for parity)")
     parser.add_argument("--docpr-id-base", type=int, default=3000,
                         help="Base value for wp:docPr/@id (default: 3000). "
                              "Use distinct bases per narrative to avoid post-inject collisions.")
+    parser.add_argument("--skip-missing-svg", action="store_true",
+                        help="Warn and continue when an SVG referenced by "
+                             "the source markdown is missing. Default is to "
+                             "raise FileNotFoundError so CI catches the "
+                             "breakage; use this flag only for in-progress "
+                             "local builds.")
     args = parser.parse_args()
     process_docx(
         args.docx,
         source_md=args.source,
-        no_relocate=args.no_relocate,
         docpr_id_base=args.docpr_id_base,
+        skip_missing_svg=args.skip_missing_svg,
     )

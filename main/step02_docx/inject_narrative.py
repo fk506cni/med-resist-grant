@@ -55,6 +55,7 @@ for _prefix, _uri in NSMAP.items():
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 R = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
 A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+WP = "{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}"
 RELS_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 CT_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
 
@@ -770,6 +771,30 @@ def process(template_path, youshiki12_path, youshiki13_path, output_path):
         narr12,
         "様式1-2",
     )
+
+    # --- Verify wp:docPr/@id uniqueness across the merged body ---
+    # M11-08: wrap_textbox.py assigns docPr/@id via narrative-scoped
+    # bases (1-2=3000, 1-3=4000) under the assumption that the template
+    # has no existing wp:docPr elements. Validate that assumption here
+    # so a future template change cannot silently introduce id
+    # collisions that Word rejects or renumbers at open time.
+    docpr_ids = [p.get("id") for p in root.iter(f"{WP}docPr")]
+    seen = set()
+    dupes = set()
+    for did in docpr_ids:
+        if did in seen:
+            dupes.add(did)
+        seen.add(did)
+    if dupes:
+        print(
+            f"ERROR: wp:docPr/@id collision detected in merged body: "
+            f"{sorted(dupes)}. Re-run wrap_textbox.py with distinct "
+            f"--docpr-id-base per narrative.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if docpr_ids:
+        print(f"  docPr uniqueness OK ({len(docpr_ids)} ids)")
 
     # --- Serialize document.xml with root tag restoration ---
     print("\nSerializing...")
