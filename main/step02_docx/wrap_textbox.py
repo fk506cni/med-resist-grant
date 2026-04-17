@@ -12,6 +12,29 @@ relocation. Added: --docpr-id-base for narrative-scoped docPr@id allocation.
 
 Preserves the original document.xml root element (with all namespace
 declarations) to avoid corruption caused by ElementTree re-serialization.
+
+================================================================================
+⚠ ElementTree register_namespace のグローバル副作用に注意（M14-01 / N14-03）
+================================================================================
+
+`xml.etree.ElementTree._namespace_map` はモジュール global の dict で、
+`register_namespace(prefix, uri)` はエントリを破壊的に上書きします。特に
+`prefix=""`（default xmlns）は 1 つしか保持できないため、同一プロセス内で
+複数の URI を default として使う場合、最後の呼び出しが勝つだけで既存の
+default 指定は失効します。
+
+M14-01 ではこれにより rels と Content_Types を両方 default にしようとして
+rels 側の Relationship が空 namespace で serialize され、Word 2016+ が
+「ファイルが破損している可能性があります」と判定する致命的バグが発生しました。
+
+⇒ **新規要素は必ず fully-qualified Clark notation で作成する**:
+   NG: `ET.SubElement(parent, "Tag")`
+   OK: `ET.SubElement(parent, f"{{{URI}}}Tag")`
+   これにより register_namespace の状態に依存せず、要素は常に正しい
+   namespace URI を保持します。
+
+この規約は `inject_narrative.py` にも共有（M14-02）。lxml 移行で根絶可能
+（I14-01）。
 """
 
 import argparse
@@ -623,10 +646,21 @@ def embed_svg_native(root, parts, source_md_path, skip_missing=False):
                 ct_default.set("ContentType", "image/svg+xml")
             svg_ct_added = True
 
+    # N14-01: rels を serialize する直前で default xmlns を RELS_NS に戻す。
+    # L517 の register_namespace("", CT_NS) で default binding が奪われたまま
+    # rels を書くと、rels 全体が `<ns0:Relationships>...<ns0:Relationship/>...`
+    # という auto-prefix 形式で serialize される。ECMA-376 的には valid だが
+    # LibreOffice 24.x は rels を parse する際に default xmlns 形式を要求し、
+    # ns0: prefix 形式では "source file could not be loaded" で拒否する。
+    # 一度 RELS_NS を "" に再 bind してから write することで pandoc と同じ
+    # `<Relationships xmlns="...">...<Relationship .../>...` 形式に揃える。
+    ET.register_namespace("", RELS_NS)
     rels_buf = BytesIO()
     ET.ElementTree(rels_root).write(rels_buf, xml_declaration=True, encoding="UTF-8")
     parts[rels_path] = rels_buf.getvalue()
 
+    # CT 側も同様に default xmlns を CT_NS に戻してから serialize する。
+    ET.register_namespace("", CT_NS)
     ct_buf = BytesIO()
     ET.ElementTree(ct_root).write(ct_buf, xml_declaration=True, encoding="UTF-8")
     parts["[Content_Types].xml"] = ct_buf.getvalue()

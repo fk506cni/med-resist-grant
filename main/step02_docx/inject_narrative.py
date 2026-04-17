@@ -13,6 +13,26 @@ Usage:
         --youshiki12 main/step02_docx/output/youshiki1_2_narrative.docx \\
         --youshiki13 main/step02_docx/output/youshiki1_3_narrative.docx \\
         --output main/step02_docx/output/youshiki1_5_filled.docx
+
+================================================================================
+⚠ ElementTree register_namespace のグローバル副作用に注意（M14-01 / M14-02 / N14-03）
+================================================================================
+
+本ファイルの `merge_rels` / `copy_media` / `merge_content_types` / `_merge_notes`
+は `ET.register_namespace("", RELS_NS)` と `ET.register_namespace("", CT_NS)` を
+状態として使う。これらは Python プロセス global の dict を書き換えるため、
+同一 default prefix ("") を複数 URI に使おうとすると最後の呼び出しが勝ち、
+先発の binding は失効する（M14-01 の根本原因）。
+
+⇒ **新規要素は必ず fully-qualified Clark notation で作成する**:
+   NG: `ET.SubElement(parent, "Tag")`  ← register_namespace 状態に脆弱
+   OK: `ET.SubElement(parent, f"{{{URI}}}Tag")`  ← 常に正しい namespace
+
+⇒ **`register_namespace("", OTHER_NS)` を追加する場合は、その前に書き出される
+   rels / notes rels の serialize が既に完了していることを確認**。さもなければ
+   M14-01 と同じクラスのバグが再発する。
+
+この規約は `wrap_textbox.py` と共有。lxml 移行で根絶可能（I14-01, report14）。
 """
 
 import argparse
@@ -316,7 +336,12 @@ def merge_rels(target_parts, src_parts, body_elements):
         new_rid = f"rId{max_rid}"
         rid_map[old_rid] = new_rid
 
-        new_rel = ET.SubElement(tgt_rels_root, "Relationship")
+        # M14-02: wrap_textbox.py の M14-01 と同じパターンを予防する。
+        # 現状の実行順序では register_namespace("", RELS_NS) が有効なまま
+        # 再 serialize されるため bare "Relationship" でも動作するが、将来
+        # merge_content_types 後に merge_rels を呼ぶ等のリファクタリングで
+        # default prefix が奪われると Word が「破損」と判定する。
+        new_rel = ET.SubElement(tgt_rels_root, f"{{{RELS_NS}}}Relationship")
         new_rel.set("Id", new_rid)
         new_rel.set("Type", rel.get("Type", ""))
         new_rel.set("Target", rel.get("Target", ""))
@@ -803,7 +828,8 @@ def _merge_notes(target_parts, src_parts, body_elements, note_type):
                 max_rid += 1
                 new_rid = f"rId{max_rid}"
                 note_rid_map[old_rid] = new_rid
-                new_rel = ET.SubElement(tgt_rels_root, "Relationship")
+                # M14-02: merge_rels と同じく fully-qualified name で作成。
+                new_rel = ET.SubElement(tgt_rels_root, f"{{{RELS_NS}}}Relationship")
                 new_rel.set("Id", new_rid)
                 new_rel.set("Type", rel.get("Type", ""))
                 new_rel.set("Target", rel.get("Target", ""))

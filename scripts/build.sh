@@ -184,6 +184,30 @@ build_inject() {
         echo "FAIL: narrative docx が見つかりません（narrative ステップを先に実行してください）" >&2
         return 1
     fi
+
+    # M14-04: template がすでに inject 済みかを検査する。build.sh の
+    # inject は --template と --output が同じパスなので、forms を経由せず
+    # 単独再実行すると rels orphan と `_n1` 付き重複 media が累積する
+    # （report14 領域 F）。narrative 由来のマーカー（wp:anchor や asvg:svgBlob）
+    # を document.xml 内で検出したら、forms を自動再実行して fresh template
+    # に戻す。unzip が無い環境では検査をスキップして従来挙動を維持する。
+    #
+    # 注意: `grep -q` と `set -o pipefail` の組合せは SIGPIPE で upstream の
+    # exit code を非零にし pipeline 全体を失敗させる。`grep -c` を使い count
+    # ベースで判定することで pipefail と両立させる（|| true で fail-safe）。
+    if command -v unzip &>/dev/null; then
+        local _marker_count
+        _marker_count=$(unzip -p "$template" word/document.xml 2>/dev/null \
+                            | grep -cE 'wp:anchor|asvg:svgBlob' || true)
+        if [[ "${_marker_count:-0}" -gt 0 ]]; then
+            echo "INFO: $template はすでに inject 済みです（marker=${_marker_count}）。forms を再実行して fresh template に戻します。"
+            if ! build_forms; then
+                RESULTS[inject]="FAIL"
+                return 1
+            fi
+        fi
+    fi
+
     echo "=== inject: ナラティブ挿入 ==="
     if run_python "$script" \
         --template "$template" \

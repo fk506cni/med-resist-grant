@@ -193,7 +193,15 @@ WScript.Quit 0
         }
 
         if ($exitCode -ne 0) {
-            Write-Log "VBScript conversion failed (exit code: $exitCode)" 'ERROR'
+            # N14-06: VBScript 側は exit 1 (OPEN_ERROR) / exit 2 (SAVEAS_ERROR) を
+            #         区別して返すため、ログでも同じ粒度で切り分ける。OPEN_ERROR は
+            #         docx の構造問題（M14-01 のような namespace バグなど）、
+            #         SAVEAS_ERROR は PDF 書き出し時の Word 内部エラーに対応する。
+            switch ($exitCode) {
+                1 { Write-Log "OPEN_ERROR: docx を開けません（構造破損の可能性）。stderr を確認: $stderrFile" 'ERROR' }
+                2 { Write-Log "SAVEAS_ERROR: PDF 書き出しに失敗しました。stderr を確認: $stderrFile" 'ERROR' }
+                default { Write-Log "VBScript conversion failed (unknown exit code: $exitCode)" 'ERROR' }
+            }
             return $null
         }
 

@@ -356,7 +356,7 @@ flowchart LR
 5. **inject**: `youshiki1_5_filled.docx` に上記要素が運搬されていることを `xmllint` で確認
 6. **docPr@id 一意性**: `youshiki1_5_filled.docx` の `word/document.xml` 内で `wp:docPr/@id` が全件ユニーク（特に 1-2 と 1-3 の両方に図がある場合の重複検査）
 7. **LibreOffice レンダリング**（参考）: `libreoffice --headless --convert-to pdf` で PDF 化し、PDF 内に画像が描画されていること（`pdfimages -list` で確認）。LO は primary blip = PNG を表示するため、これだけでは Word での asvg レンダリングは検証されない
-8. **Windows Word COM レンダリング**（**本番合否判定**）: `scripts/roundtrip.sh` を経由して Google Drive 同期 → Windows `watch-and-convert.ps1` → Word COM → PDF を生成し、生成 PDF 内で SVG（ベクタ）が表示されることを目視確認。LO 検証が通っても Windows 側で崩れるパターン（asvg レンダリング不具合、フォント代替、`anchor-v="paragraph"` の挙動差）はここでしか検出できない
+8. **Windows Word COM レンダリング**（**本番合否判定**）: `scripts/roundtrip.sh` を経由して Google Drive 同期 → Windows `watch-and-convert.ps1` → Word COM → PDF を生成し、生成 PDF 内で SVG が **ラスタ画像として鮮明に（300 dpi 相当）**表示されることを目視確認。**ベクタ保持は Word COM `SaveAs2 wdFormatPDF` 仕様により達成不可能**であり、M14-03（report14）の決定で primary PNG ラスタ表示を受容する。LO 検証が通っても Windows 側で崩れるパターン（asvg レンダリング不具合、フォント代替、`anchor-v="paragraph"` の挙動差）はここでしか検出できない
 9. **サイズ**: 最終 PDF が 10MB 未満、目標 3MB 未満
 10. **非破壊**: デモブロックを除去した場合に既存 E2E（`DATA_DIR=data/dummy`）が引き続き通過すること
 
@@ -379,7 +379,8 @@ flowchart LR
 | 日本語フォントが SVG に埋め込まれない | fonts-noto-cjk + fonts-ipafont を Dockerfile に同梱済み |
 | `anchor-v="paragraph"` で位置が意図せず動く | `wrap="square"`/`"tight"` を既定として流し込み、執筆者が必要に応じて `pos-y` で微調整 |
 | 既存 Markdown の `![](...)` 直接参照が lua フィルタを通さないため位置制御できない | 原則 `.textbox` Div で囲むルールを README に明記 |
-| Word 2016 未満環境ではネイティブ SVG が表示されない | §7.3 の primary=PNG / 拡張=SVG 二段構成で Word 2013 でもフォールバック表示可 |
+| Word 2016 未満環境ではネイティブ SVG が表示されない | §7.3 の primary=PNG / 拡張=SVG 二段構成で Word 2013 でもフォールバック表示可。なお M14-03（report14）により PDF 化時は Word 2016+ でも primary PNG のみが使われる点に留意 |
+| Word COM `SaveAs2 wdFormatPDF` が SVG ベクタを保持せず、PDF 内のラベルが selectable text にならない | M14-03（report14）で受容。primary PNG を `rsvg-convert -d 300 -p 300` で生成して印刷品質を確保。審査は目視評価のため実害低 |
 | Windows 側 watch-and-convert.ps1 で SVG 入り docx が破壊される | §11 検証8 で実地確認。発見時は wrap_textbox の構造を見直す |
 | `roundtrip.sh` の rclone push/pull で SVG メディアが運搬されない | docx は単一 ZIP なので rclone copy で完全運搬される（既存実績あり） |
 | mermaid Docker イメージのビルド時間（初回 ~5分） | `./scripts/build.sh mermaid-build` サブコマンドで事前ビルドを提供 |

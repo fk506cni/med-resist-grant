@@ -52,6 +52,29 @@ log_ok()    { echo "[OK]    $(date '+%H:%M:%S') $1"; }
 
 separator() { echo "========================================"; }
 
+# M14-05: rclone 呼び出しを retry 付きで実行するヘルパー。
+# Google Drive の応答遅延で 1 回の timeout が起きても即中断せず、最大
+# $RCLONE_MAX_RETRIES 回まで間隔 $RCLONE_RETRY_SLEEP 秒を置いて再試行する。
+# 使用例: rclone_with_retry 60 rclone lsf "${GDRIVE_DEST}/" --max-depth 1
+RCLONE_MAX_RETRIES="${RCLONE_MAX_RETRIES:-3}"
+RCLONE_RETRY_SLEEP="${RCLONE_RETRY_SLEEP:-5}"
+rclone_with_retry() {
+    local to="$1"; shift
+    local attempt=1
+    while :; do
+        if timeout "$to" "$@"; then
+            return 0
+        fi
+        local rc=$?
+        if [[ $attempt -ge $RCLONE_MAX_RETRIES ]]; then
+            return $rc
+        fi
+        log_warn "rclone 実行失敗 (exit $rc, try $attempt/$RCLONE_MAX_RETRIES)。${RCLONE_RETRY_SLEEP}秒後に再試行します"
+        sleep "$RCLONE_RETRY_SLEEP"
+        attempt=$((attempt + 1))
+    done
+}
+
 # --- 引数解析 ---
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -129,8 +152,10 @@ phase_push() {
         log_error "rclone がインストールされていません"
         return 1
     fi
-    if ! timeout 15 rclone lsf "${GDRIVE_DEST}/" --max-depth 1 --dirs-only &>/dev/null; then
-        log_error "rclone リモ���ト '$GDRIVE_DEST' に接続できません"
+    # M14-05: timeout を 15s → 60s に緩和し retry を追加。Google Drive の
+    # 応答遅延で一時的に失敗しても自動復帰する。
+    if ! rclone_with_retry 60 rclone lsf "${GDRIVE_DEST}/" --max-depth 1 --dirs-only &>/dev/null; then
+        log_error "rclone リモート '$GDRIVE_DEST' に接続できません"
         log_error "  rclone config reconnect ${GDRIVE_REMOTE} を実行してください"
         exit 1
     fi
@@ -185,9 +210,16 @@ phase_wait_and_pull() {
     local prev_found=0
 
     while [[ $SECONDS -lt $deadline ]]; do
+        # N14-05: timeout を 15s → 60s に緩和。watch-and-convert が一方向に
+        # PDF を produce する性質を活用し、found_pdfs を単調増加とする
+        # （一時的な空応答で値が drop することによる振動を防ぐ）。
         local _pdf_lines
-        _pdf_lines=$(timeout 15 rclone lsf "$GDRIVE_DEST/products" --include "*.pdf" --max-depth 1 --files-only 2>/dev/null) || true
-        found_pdfs=$(echo "$_pdf_lines" | grep -c . || true)
+        _pdf_lines=$(timeout 60 rclone lsf "$GDRIVE_DEST/products" --include "*.pdf" --max-depth 1 --files-only 2>/dev/null) || true
+        local _count
+        _count=$(echo "$_pdf_lines" | grep -c . || true)
+        if [[ "$_count" -gt "$found_pdfs" ]]; then
+            found_pdfs=$_count
+        fi
 
         if [[ "$found_pdfs" -ne "$prev_found" ]]; then
             log_info "PDF検出: $found_pdfs / $expected_pdfs"
@@ -245,7 +277,8 @@ phase_wait_and_pull() {
     rclone mkdir "$gdrive_archive" 2>/dev/null || true
 
     local pdf_list
-    pdf_list=$(timeout 15 rclone lsf "$GDRIVE_DEST/products" --include "*.pdf" --max-depth 1 --files-only 2>/dev/null || true)
+    # M14-05: 退避前の一覧取得も 60s + retry に緩和。
+    pdf_list=$(rclone_with_retry 60 rclone lsf "$GDRIVE_DEST/products" --include "*.pdf" --max-depth 1 --files-only 2>/dev/null || true)
     for pdf_name in $pdf_list; do
         local base="${pdf_name%.pdf}"
         local archived_name="${base}_${archive_ts}.pdf"
