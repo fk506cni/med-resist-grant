@@ -772,13 +772,29 @@ def process(template_path, youshiki12_path, youshiki13_path, output_path):
         "様式1-2",
     )
 
-    # --- Verify wp:docPr/@id uniqueness across the merged body ---
+    # --- Verify wp:docPr/@id uniqueness across the merged package ---
     # M11-08: wrap_textbox.py assigns docPr/@id via narrative-scoped
     # bases (1-2=3000, 1-3=4000) under the assumption that the template
     # has no existing wp:docPr elements. Validate that assumption here
     # so a future template change cannot silently introduce id
     # collisions that Word rejects or renumbers at open time.
+    # M12-05: body (document.xml) だけでなく header*/footer*.xml も走査対象に含め、
+    #         テンプレート更新時の潜在衝突を見逃さない。document.xml 本体はまだ
+    #         tgt_parts に書き戻されていないため、serialize 済みの root を優先使用する。
     docpr_ids = [p.get("id") for p in root.iter(f"{WP}docPr")]
+    for fn, data in tgt_parts.items():
+        if not (fn.startswith("word/") and fn.endswith(".xml")):
+            continue
+        if fn == "word/document.xml":
+            continue  # 本体は上の root から収集済み
+        if not (fn.startswith("word/header") or fn.startswith("word/footer")):
+            continue
+        try:
+            r = ET.fromstring(data)
+        except ET.ParseError:
+            continue
+        docpr_ids.extend(p.get("id") for p in r.iter(f"{WP}docPr"))
+
     seen = set()
     dupes = set()
     for did in docpr_ids:
@@ -787,14 +803,14 @@ def process(template_path, youshiki12_path, youshiki13_path, output_path):
         seen.add(did)
     if dupes:
         print(
-            f"ERROR: wp:docPr/@id collision detected in merged body: "
-            f"{sorted(dupes)}. Re-run wrap_textbox.py with distinct "
-            f"--docpr-id-base per narrative.",
+            f"ERROR: wp:docPr/@id collision detected in merged package "
+            f"(document/header/footer): {sorted(dupes)}. Re-run "
+            f"wrap_textbox.py with distinct --docpr-id-base per narrative.",
             file=sys.stderr,
         )
         sys.exit(1)
     if docpr_ids:
-        print(f"  docPr uniqueness OK ({len(docpr_ids)} ids)")
+        print(f"  docPr uniqueness OK ({len(docpr_ids)} ids, incl. header/footer)")
 
     # --- Serialize document.xml with root tag restoration ---
     print("\nSerializing...")

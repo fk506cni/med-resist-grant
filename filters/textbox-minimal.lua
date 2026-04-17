@@ -160,9 +160,21 @@ return {
   -- Pass 1: rewrite .svg image src to .svg.png so pandoc's primary blip
   -- is a PNG (avoids Word's unstable primary-blip-is-SVG behavior; the
   -- real SVG is re-attached later via asvg:svgBlob in wrap_textbox.py).
-  -- N11-01: use lower-case matching so .SVG / .Svg are handled too.
+  -- N12-01: 拡張子は .svg（小文字）限定。大文字 / 混合ケースは Phase A の
+  --         *.svg glob と整合しないため、silent に画像欠落 docx を作らない
+  --         よう fail-fast する。
   { Image = function(img)
-      if img.src:lower():match("%.svg$") then
+      local ext = img.src:match("%.[sS][vV][gG]$")
+      if ext then
+        if ext ~= ".svg" then
+          io.stderr:write(string.format(
+            "ERROR: SVG image '%s' uses non-lowercase extension '%s'. " ..
+            "Rename the file (and the markdown reference) to '.svg' — " ..
+            "Phase A globs are case-sensitive and will skip the file, " ..
+            "causing pandoc to silently emit a docx without the image.\n",
+            img.src, ext))
+          os.exit(1)
+        end
         img.src = img.src .. ".png"
       end
       return img

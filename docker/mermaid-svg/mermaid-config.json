@@ -1,5 +1,9 @@
 {
-  "flowchart": {
-    "htmlLabels": false
-  }
+  "flowchart":    { "htmlLabels": false },
+  "class":        { "htmlLabels": false },
+  "state":        { "htmlLabels": false },
+  "sequence":     { "htmlLabels": false },
+  "er":           { "htmlLabels": false },
+  "gantt":        { "htmlLabels": false },
+  "journey":      { "htmlLabels": false }
 }

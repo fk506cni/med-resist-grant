@@ -17,7 +17,9 @@ declarations) to avoid corruption caused by ElementTree re-serialization.
 import argparse
 import os
 import re
+import shutil
 import sys
+import tempfile
 import zipfile
 import xml.etree.ElementTree as ET
 from io import BytesIO
@@ -148,6 +150,15 @@ def build_textbox_paragraph(attrs, content_elements, z_order, id_base):
     docPr@id is allocated as ``id_base + z_order`` so that narrative-level
     callers (1-2, 1-3) can pick disjoint ranges to avoid post-inject collisions.
     """
+    # N12-07: z_order が 1000 を超えると隣接 narrative の id_base 空間
+    # （1-2=3000, 1-3=4000）に侵食する。inject 時の衝突検査で発見は可能だが、
+    # 事前に wrap_textbox 単体で fail-fast させる方が開発体験が良い。
+    if z_order >= 1000:
+        raise ValueError(
+            f"textbox z_order={z_order} exceeds the 1000-id window reserved "
+            f"for a single narrative (id_base={id_base}). Either split the "
+            f"narrative or widen the base spacing in build_narrative.sh."
+        )
     width = int(attrs.get("width", "0"))
     height = int(attrs.get("height", "0"))
     pos_x = int(attrs.get("pos-x", "0"))
@@ -675,9 +686,22 @@ def process_docx(docx_path, source_md=None, docpr_id_base=3000,
 
     parts["word/document.xml"] = new_xml
 
-    with zipfile.ZipFile(docx_path, "w", zipfile.ZIP_DEFLATED) as zout:
-        for filename, data in parts.items():
-            zout.writestr(filename, data)
+    # M12-01: ZipFile(docx_path, "w") は原ファイルを即 truncate するため、
+    #         書き込み途中で例外が発生すると原 docx が破壊される。
+    #         inject_narrative.py と同じく tempfile → shutil.move で atomic に
+    #         上書きする。
+    out_dir = os.path.dirname(os.path.abspath(docx_path)) or "."
+    fd, tmp_path = tempfile.mkstemp(suffix=".docx", dir=out_dir)
+    os.close(fd)
+    try:
+        with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zout:
+            for filename, data in parts.items():
+                zout.writestr(filename, data)
+        shutil.move(tmp_path, docx_path)
+    except Exception:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
 
     print(f"Processed: {docx_path} ({len(regions)} text box(es))")
 

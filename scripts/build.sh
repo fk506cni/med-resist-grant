@@ -76,19 +76,29 @@ run_bash() {
         docker)
             bash "$script" --docker "$@"
             ;;
-        uv|direct)
+        uv)
+            # M12-07: uv モード時は対応スクリプトに --uv を伝搬
+            bash "$script" --uv "$@"
+            ;;
+        direct)
             bash "$script" --local "$@"
             ;;
     esac
 }
 
 # --- Docker イメージ確認 ---
+# N12-03: mermaid サービスも事前ビルド対象に含め、narrative 段で初めて
+#         build が走って長時間止まる事故を防ぐ。
+# M12-02: 詳細な Dockerfile 新鮮さ検査は build_narrative.sh:preflight_docker_images
+#         で実施。ここでは「イメージが存在するか」だけを確認する最低保証。
 ensure_docker_image() {
     if [[ "$RUNNER" != "docker" ]]; then return; fi
-    if ! docker compose -f "$COMPOSE_FILE" images --quiet python 2>/dev/null | grep -q .; then
-        echo "Docker イメージが見つかりません。ビルドします..."
-        docker compose -f "$COMPOSE_FILE" build python
-    fi
+    for svc in python mermaid; do
+        if ! docker compose -f "$COMPOSE_FILE" images --quiet "$svc" 2>/dev/null | grep -q .; then
+            echo "Docker イメージが見つかりません ($svc)。ビルドします..."
+            docker compose -f "$COMPOSE_FILE" build "$svc"
+        fi
+    done
 }
 
 # --- ステップ関数 ---
