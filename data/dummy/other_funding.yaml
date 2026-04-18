@@ -83,6 +83,5 @@ co_investigator_funding:
           本課題では薬剤感受性試験法の高度化を担当しており、研究内容が異なる。
         confidential: false
 
-  # --- 追加分担者のテンプレート ---
-  # - researcher_name: "○○ ○○"
-  #   entries: []  # 該当なしの場合は空リスト
+  - researcher_name: "□□ □□"
+    entries: []  # 該当なし

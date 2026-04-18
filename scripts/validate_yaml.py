@@ -23,6 +23,12 @@ def _parse_args():
         default=str(Path(__file__).resolve().parent.parent / "main" / "00_setup"),
         help="Directory containing YAML setup files",
     )
+    parser.add_argument(
+        "--allow-placeholder",
+        action="store_true",
+        help="placeholder マーカー (○○/△△/□□/XX) を warning 扱いで通す "
+        "(dummy E2E テスト用)",
+    )
     return parser.parse_args()
 
 
@@ -31,20 +37,29 @@ SETUP_DIR = Path(__file__).resolve().parent.parent / "main" / "00_setup"
 YAML_FILES = ["config.yaml", "researchers.yaml", "other_funding.yaml", "security.yaml"]
 
 # 必須フィールド（ドット区切りパス）
+# N15-02: 様式5 deletion / 承諾書 fill / 結合 PDF metadata で参照される
+# フィールドを必須化し、未設定での silent fail を防ぐ。
 REQUIRED_FIELDS = {
     "config.yaml": [
         "project.title_ja",
         "project.title_en",
         "project.type",
         "project.period_years",
+        "project.period_end",                       # 承諾書 fill (M15-02)
         "lead_institution.name",
+        "lead_institution.type",                    # 様式5 deletion (N15-10)
+        "lead_institution.authorized_signer.name",  # 承諾書 fill (M15-02)
+        "lead_institution.authorized_signer.title", # 承諾書 fill (M15-02)
         "budget.yearly",
         "budget.by_institution",
         "budget.details",
     ],
     "researchers.yaml": [
         "pi.name_ja",
+        "pi.name_en",
         "pi.affiliation",
+        "pi.department",
+        "pi.position",
         "pi.effort_percent",
     ],
     "other_funding.yaml": [
@@ -54,6 +69,19 @@ REQUIRED_FIELDS = {
         "researchers",
     ],
 }
+
+# N15-10: lead_institution.type の enum 検査
+# 様式5 deletion 条件 ("大学等" / "公的研究機関") との整合を強制する
+INST_TYPE_ENUM = ("大学等", "公的研究機関", "民間企業", "その他")
+
+# M15-04: placeholder マーカー
+# 本番 YAML にこれらが残っていれば実データ未確定として ERROR 扱い
+PLACEHOLDER_PATTERNS = ("○○", "△△", "□□", "XX", "ＸＸ")
+PLACEHOLDER_TARGET_FIELDS = (
+    # researchers.yaml の対象フィールド（ドット区切り、各 co も同等に検査）
+    "name_ja", "name_en", "affiliation", "department", "position",
+    "researcher_id", "furigana",
+)
 
 
 def load_yamls():
@@ -185,6 +213,47 @@ def check_researcher_security(researchers_data, security_data):
     return errors
 
 
+def check_inst_type(config_data):
+    """N15-10: lead_institution.type が enum 内であることを検査。"""
+    errors = []
+    inst_type = config_data.get("lead_institution", {}).get("type", "")
+    if inst_type and inst_type not in INST_TYPE_ENUM:
+        errors.append(
+            f"config.yaml: lead_institution.type='{inst_type}' は無効です "
+            f"(許容値: {', '.join(INST_TYPE_ENUM)})"
+        )
+    return errors
+
+
+def _has_placeholder(value):
+    if not isinstance(value, str):
+        return False
+    return any(p in value for p in PLACEHOLDER_PATTERNS)
+
+
+def check_placeholder(researchers_data):
+    """M15-04: researchers.yaml に placeholder マーカーが残っていないか検査。"""
+    errors = []
+
+    def _check_person(person, label):
+        for field in PLACEHOLDER_TARGET_FIELDS:
+            v = person.get(field)
+            if _has_placeholder(v):
+                errors.append(
+                    f"researchers.yaml: {label}.{field}='{v}' は placeholder です "
+                    f"(○○/△△/□□/XX 等が含まれる) — 実データに置換してください"
+                )
+
+    pi = researchers_data.get("pi", {}) or {}
+    if pi:
+        _check_person(pi, "pi")
+
+    for idx, ci in enumerate(researchers_data.get("co_investigators", []) or []):
+        _check_person(ci, f"co_investigators[{idx}]")
+
+    return errors
+
+
 def check_effort(researchers_data, other_funding_data):
     """effort_percent の合算が100%を超えていないか。"""
     errors = []
@@ -241,6 +310,13 @@ def main():
 
     if "config.yaml" in data:
         errors.extend(check_budget_consistency(data["config.yaml"]))
+        errors.extend(check_inst_type(data["config.yaml"]))
+
+    placeholder_findings = []
+    if "researchers.yaml" in data:
+        placeholder_findings = check_placeholder(data["researchers.yaml"])
+        if not args.allow_placeholder:
+            errors.extend(placeholder_findings)
 
     if "researchers.yaml" in data and "security.yaml" in data:
         errors.extend(
@@ -258,6 +334,11 @@ def main():
         print(f"バリデーション失敗: {len(errors)} 件のエラー")
         sys.exit(1)
     else:
+        if args.allow_placeholder and placeholder_findings:
+            print("警告 (--allow-placeholder により skip):")
+            for w in placeholder_findings:
+                print(f"  ⚠ {w}")
+            print()
         print("  全チェック OK")
         print()
 

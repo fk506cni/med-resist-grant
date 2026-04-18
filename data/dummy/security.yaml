@@ -202,6 +202,56 @@ researchers:
 
     nationality: "日本"
 
+  # === 研究分担者2 ===
+  "□□ □□":
+    education_history:
+      - year_month: "20XX年3月"
+        description: "○○大学○○学部 卒業"
+      - year_month: "20XX年3月"
+        description: "○○大学大学院○○学研究科 博士課程修了"
+
+    career_history:
+      - year_month: "20XX年4月"
+        description: "○○大学○○学研究科 助教"
+      - year_month: "20XX年4月"
+        description: "○○大学○○学研究科 講師（現職）"
+
+    funding_history:
+      - date: "R6年4月"
+        program_name: "科学研究費助成事業 若手研究"
+        agency: "日本学術振興会"
+        period: "R6〜R9"
+        total_amount: "4,000,000円"
+
+    non_research_support: []
+
+    publications:
+      - date: "20XX年XX月"
+        title: "○○に関する研究 (Journal of ○○)"
+        first_author: "Tanaka J"
+        corresponding_author: "Tanaka J"
+        co_authors: "Yamada T"
+
+    patents: []
+
+    foreign_talent_programs: []
+
+    disciplinary_history: []
+
+    list_status:
+      applicable: false
+      details: ""
+
+    listed_entity_affiliation: []
+
+    listed_entity_relationships: []
+
+    residency_status:
+      applicable: false
+      details: ""
+
+    nationality: "日本"
+
 # ---------------------------------------------------------------------------
 # risk_assessment: リスク評価・軽減措置
 # → 別紙5 §2 Tables 17-18, §3 Tables 19-20, §4 Tables 21-22

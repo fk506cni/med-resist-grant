@@ -1,0 +1,13 @@
+[project]
+name = "med-resist-grant"
+version = "0.1.0"
+description = "令和8年度 安全保障技術研究推進制度 申請書類作成システム"
+requires-python = ">=3.12"
+dependencies = [
+    "python-docx",
+    "openpyxl",
+    "pyyaml",
+    "ruamel.yaml",
+    "Jinja2",
+    "pypdf",
+]

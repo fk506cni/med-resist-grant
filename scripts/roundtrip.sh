@@ -120,6 +120,21 @@ phase_collect() {
     separator
     echo ""
 
+    # M15-01: 集約前に既存の docx/xlsx を削除し、ステイル成果物の累積を防ぐ。
+    # 過去ビルドの研究者構成・命名規約変更時の旧ファイル（例: 旧 placeholder
+    # 名の betten_XX_○○.docx）が gdrive 経由で Windows へ転送され、提出物に
+    # 混入する事故を根本的に塞ぐ。.gitkeep は保持。
+    local stale=0
+    for f in "$OUTPUT_DIR"/*.docx "$OUTPUT_DIR"/*.xlsx; do
+        if [[ -f "$f" ]]; then
+            rm -f "$f"
+            stale=$((stale + 1))
+        fi
+    done
+    if [[ "$stale" -gt 0 ]]; then
+        log_info "既存の $stale ファイルをクリアしました（ステイル混入防止）"
+    fi
+
     local count=0
     for dir in "${BUILD_OUTPUT_DIRS[@]}"; do
         if [[ ! -d "$dir" ]]; then continue; fi
@@ -292,6 +307,60 @@ phase_wait_and_pull() {
 }
 
 # ============================================================
+# Phase 5: PDF 結合（pypdf）→ Windows gdrive に push back
+# ============================================================
+phase_merge() {
+    separator
+    log_info "Phase 5: PDF結合 → Windows gdrive へ push back"
+    separator
+    echo ""
+
+    if [[ -n "$DRY_RUN" ]]; then
+        log_info "(dry-run: 結合・push back をスキップします)"
+        echo ""
+        return
+    fi
+
+    local merge_script="main/step04_package/merge_pdfs.py"
+    if [[ ! -f "$merge_script" ]]; then
+        log_warn "$merge_script が見つかりません。結合をスキップします"
+        echo ""
+        return
+    fi
+
+    # build.sh merge サブコマンドを使って RUNNER 切替・SETUP_DIR 継承を統一
+    # （docker / uv / direct は build.sh の RUNNER 環境変数に従う）
+    if ! bash "$SCRIPT_DIR/build.sh" merge; then
+        log_warn "merge_pdfs.py の実行に失敗しました。結合 PDF 無しで続行します"
+        echo ""
+        return
+    fi
+
+    local merged="$PRODUCTS_DIR/submission_merged.pdf"
+    if [[ ! -f "$merged" ]]; then
+        log_warn "結合 PDF が生成されていません: $merged"
+        echo ""
+        return
+    fi
+
+    log_ok "結合PDF: $merged ($(du -h "$merged" | cut -f1))"
+    echo ""
+
+    # Windows 側 gdrive の merged/ フォルダへ戻す。watch-and-convert.ps1 は
+    # *.docx のみ監視するため、結合 PDF を配置しても変換ループは発生しない。
+    # merged/ は Phase 4 の products/__archives 退避対象外なので提出当日まで残る。
+    log_info "結合PDFを $GDRIVE_DEST/merged/ に push..."
+    rclone mkdir "$GDRIVE_DEST/merged" 2>/dev/null || true
+    if rclone copy "$merged" "$GDRIVE_DEST/merged/" \
+            --stats-one-line -v; then
+        log_ok "結合PDF push 完了 → Windows 側 gdrive に同期待ち"
+    else
+        log_warn "結合PDF の push に失敗しました（Linux 側 data/products/ には生成済）"
+    fi
+    echo ""
+}
+
+# ============================================================
 # メイン
 # ============================================================
 echo ""
@@ -327,6 +396,9 @@ fi
 
 # Phase 4
 phase_wait_and_pull
+
+# Phase 5
+phase_merge
 
 # --- 完了サマリー ---
 separator

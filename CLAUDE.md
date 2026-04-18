@@ -50,7 +50,8 @@ med-resist-grant/
 │   │   ├── config.yaml          # プロジェクト設定
 │   │   ├── researchers.yaml     # 研究者情報
 │   │   ├── other_funding.yaml   # 他制度応募状況
-│   │   └── security.yaml        # セキュリティ情報
+│   │   ├── security.yaml        # セキュリティ情報
+│   │   └── package.yaml         # PDF結合設定 (submission/interview の sources・metadata)
 │   ├── step01_narrative/        # Markdown本文ソース
 │   │   ├── youshiki1_2.md       # 様式1-2: 研究計画詳細 (最大15p)
 │   │   ├── youshiki1_3.md       # 様式1-3: 追加説明事項
@@ -65,6 +66,7 @@ med-resist-grant/
 │   │   ├── fill_excel.py        # Excel記入
 │   │   └── output/
 │   └── step04_package/          # パッケージング
+│       ├── merge_pdfs.py        # 結合PDF生成 (pypdf, package.yaml 駆動)
 │       └── output/
 ├── refs/                        # 参考資料 (gitignored)
 ├── templates/                   # Pandoc reference-doc 等
@@ -88,8 +90,8 @@ med-resist-grant/
 | 書類 | 形式 | 生成方法 | 提出形式 | 提出タイミング |
 |------|------|----------|----------|--------------|
 | 様式1-1: 申請書概要 | docx | python-docx (テーブル記入) | PDF | 応募時(5/20) |
-| 様式1-2: 申請書詳細 | docx | Pandoc (Markdown→docx) | PDF | 応募時(5/20) |
-| 様式1-3: 追加説明事項 | docx | Pandoc (Markdown→docx) | PDF | 応募時(5/20) |
+| 様式1-2: 申請書詳細 | docx | Pandoc→inject_narrative.py で統合 | PDF | 応募時(5/20) |
+| 様式1-3: 追加説明事項 | docx | Pandoc→inject_narrative.py で統合 | PDF | 応募時(5/20) |
 | 様式2-1: 研究費見込額 | docx | python-docx (テーブル記入) | PDF | 応募時(5/20) |
 | 様式2-2: 研究費計画書 | docx | python-docx (テーブル記入) | PDF | 応募時(5/20) |
 | 様式3-1: 他制度(代表者) | docx | python-docx (テーブル記入) | PDF | 応募時(5/20) |
@@ -106,6 +108,10 @@ med-resist-grant/
 | 様式8: 連絡先 | xlsx | openpyxl | Excel | 応募時(5/20) |
 
 ※ 様式1-1〜5 + 参考様式は **1つのPDF** に結合して提出（未記入の様式は削除すること）
+  → 現状は `youshiki1_5_filled.docx` 1 docx に統合済み、Windows Word PDF 化で
+    `youshiki1_5_filled.pdf` を生成、`merge_pdfs.py` (pypdf) が
+    `submission_merged.pdf` として metadata 付きで仕上げる。将来様式単位に分割
+    した際は `main/00_setup/package.yaml` の `sources` リストを更新するだけで対応。
 ※ チェックリストの提出は不要（提出前の自己確認用）
 
 ### Tech Stack
@@ -116,6 +122,7 @@ med-resist-grant/
 | メタデータ | YAML |
 | Word変換 | Pandoc 3.6.x + python-docx |
 | Excel記入 | openpyxl |
+| PDF結合 | pypdf (Linux/Docker, package.yaml 駆動) |
 | 実行環境 | Docker / uv |
 | Word修復・PDF化 | Windows + Word COM API |
 | データ同期 | Google Drive (rclone copy) |
@@ -132,10 +139,12 @@ med-resist-grant/
 # 全ステップ実行（デフォルト: Docker経由）
 ./scripts/build.sh
 
-# サブコマンド: validate, forms, narrative, security, excel, package, clean, check
+# サブコマンド: validate, forms, narrative, inject, security, excel, merge, package, clean, check
 ./scripts/build.sh validate    # YAMLバリデーションのみ
 ./scripts/build.sh clean       # 全output/をクリーン
 ./scripts/build.sh check       # 出力ファイルの存在・サイズチェック
+MERGE_MODE=submission ./scripts/build.sh merge   # data/products/*.pdf を結合
+                                                 #   (通常は roundtrip.sh Phase 5 から自動呼出)
 
 # 実行環境切替（RUNNER環境変数）
 RUNNER=docker ./scripts/build.sh   # Docker (デフォルト)
@@ -177,11 +186,12 @@ docker compose -f docker/docker-compose.yml down
 
 1. `main/00_setup/*.yaml` にメタデータを記入
 2. `main/step01_narrative/*.md` に本文を執筆
-3. `./scripts/roundtrip.sh` でビルド→push→PDF変換待ち→pull を一括実行
+3. `./scripts/roundtrip.sh` でビルド→push→PDF変換待ち→pull→結合 を一括実行
    - ビルド成果物: `data/output/` (docx/xlsx)
    - 変換済みPDF: `data/products/`
+   - 結合PDF: `data/products/submission_merged.pdf`（Phase 5、Windows gdrive にも push back）
 4. Windows側では `watch-and-convert.ps1` が常駐してdocx→PDF自動変換
-5. e-Radで提出
+5. e-Radで `submission_merged.pdf` ＋ 様式6/7/8.xlsx を提出
 
 ### Step-by-Step Pipeline
 

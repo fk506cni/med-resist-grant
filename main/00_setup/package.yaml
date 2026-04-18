@@ -1,0 +1,45 @@
+# =============================================================================
+# package.yaml — PDF結合設定（pypdf ベース）
+# =============================================================================
+# 参照先: main/step04_package/merge_pdfs.py
+# 実行タイミング: roundtrip.sh Phase 5（Windows Word PDF 化 → pull 完了後）
+#
+# モード:
+#   submission: 応募時（2026-05-20 正午 必着）
+#               — 様式1-1〜5+参考様式の単一 PDF を結合
+#   interview:  面接選出後（7月中旬）
+#               — 別紙5 + 別添（研究者人数分）を結合
+#
+# sources の指定形式:
+#   - "filename.pdf"                                # data/products/ 相対
+#   - { pattern: "glob_pattern.pdf", sort: alpha }  # glob 展開（alpha 昇順）
+# =============================================================================
+
+submission:
+  output: "submission_merged.pdf"
+  metadata:
+    title_from: "project.title_ja"       # config.yaml のドット区切りパス
+    author_from: "pi.name_ja"            # researchers.yaml のドット区切りパス
+    subject: "令和8年度 安全保障技術研究推進制度 応募書類"
+  sources:
+    # 現状、様式1-1〜5+参考様式は fill_forms.py + inject_narrative.py が
+    # youshiki1_5_filled.docx として単一 docx に統合済み。したがって結合は
+    # 実質 1 件の no-op だが、将来 fill_forms.py を様式単位に分割した際は
+    # 以下を個別 PDF のリストに置換するだけで対応できる:
+    #   - youshiki1_1_filled.pdf
+    #   - youshiki1_2_filled.pdf
+    #   - youshiki1_3_filled.pdf
+    #   - youshiki2_1_filled.pdf
+    #   - ...
+    - youshiki1_5_filled.pdf
+
+interview:
+  output: "interview_merged.pdf"
+  metadata:
+    title_from: "project.title_ja"
+    author_from: "pi.name_ja"
+    subject: "研究セキュリティ関連書類（別紙5+別添）"
+  sources:
+    - besshi5_filled.pdf
+    - pattern: "betten_*.pdf"
+      sort: "alpha"                      # idx prefix (01, 02, ...) で昇順

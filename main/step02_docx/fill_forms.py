@@ -663,39 +663,147 @@ def fill_4(tbl, cfg, person, label="様式4-1"):
 # ============================================================================
 
 def fill_consent_forms(doc, cfg, res):
-    """Search consent-form paragraphs for placeholder patterns and fill them.
+    """Fill placeholders in 参考様式 (承諾書) sections.
 
-    The exact placeholder text depends on the template.  This function
-    performs best-effort replacement of common patterns.
+    M15-02: 5 系統の placeholder を YAML から自動 fill する:
+      - 「□□ □□」 signer 行（代表機関版のみ）
+      - 「研究代表者 所属氏名：」 PI 名（代表機関版のみ）
+      - 「研究分担者 所属氏名：」 co_investigator 一覧
+      - 「研究課題名：」 課題名
+      - 「代表研究機関名：」 代表機関名（分担機関版）
+      - 「令和　年度安全保障…」「令和　年度～令和　年度」 元号年置換
+
+    分担研究機関の signer は機関ごとに異なるため自動 fill は対象外
+    （手動入力で対応）。日付（令和　年　月　日）も提出時の判断のため未対応。
     """
     inst = cfg["lead_institution"]
     proj = cfg["project"]
     pi = res["pi"]
+    co_list = res.get("co_investigators", []) or []
 
-    signer_name = inst.get("authorized_signer", {}).get("name", "")
-    signer_title = inst.get("authorized_signer", {}).get("title", "")
+    signer = inst.get("authorized_signer", {}) or {}
+    signer_name = signer.get("name", "")
+    signer_title = signer.get("title", "")
     inst_name = inst.get("name", "")
+    title_ja = proj.get("title_ja", "")
 
+    period_end = str(proj.get("period_end", "R10"))
+    # "R10" / "Ｒ10" / "10" / "令和10年度" → "10"
+    period_end_year = "".join(c for c in period_end if c.isdigit()) or "10"
+
+    pi_display = (
+        f"{pi.get('affiliation', '')}\u3000{pi.get('name_ja', '')}"
+    ).strip()
+    co_display = "、".join(
+        f"{co.get('affiliation', '')}\u3000{co.get('name_ja', '')}".strip()
+        for co in co_list
+    )
+    lead_signer_display = "\u3000".join(
+        x for x in (inst_name, signer_title, signer_name) if x
+    )
+
+    def _set_para_text(para, new_text):
+        """Replace paragraph text while preserving the first run's rPr."""
+        rpr = None
+        for r in para.runs:
+            rpr_el = r._element.find(qn("w:rPr"))
+            if rpr_el is not None:
+                rpr = copy.deepcopy(rpr_el)
+                break
+        for r_el in list(para._element.findall(qn("w:r"))):
+            para._element.remove(r_el)
+        new_r = OxmlElement("w:r")
+        if rpr is not None:
+            new_r.append(rpr)
+        new_t = OxmlElement("w:t")
+        new_t.text = new_text
+        new_t.set(qn("xml:space"), "preserve")
+        new_r.append(new_t)
+        para._element.append(new_r)
+
+    def _patch_runs(para):
+        """Run-level substitutions (intro 元号年 / 実施期間)."""
+        for run in para.runs:
+            rt = run.text
+            new_rt = rt
+            new_rt = new_rt.replace(
+                "令和\u3000年度安全保障技術研究推進制度",
+                "令和８年度安全保障技術研究推進制度",
+            )
+            new_rt = new_rt.replace(
+                "令和\u3000年度～令和\u3000年度",
+                f"令和８年度～令和{period_end_year}年度",
+            )
+            new_rt = new_rt.replace(
+                "令和\u3000年度〜令和\u3000年度",
+                f"令和８年度〜令和{period_end_year}年度",
+            )
+            if new_rt != rt:
+                run.text = new_rt
+
+    consent_type = None  # "lead" | "partner" | "hojokin" | None
     in_consent = False
+    fills = 0
+
     for para in doc.paragraphs:
         text = para.text
-        # Detect consent-form section
-        if "承諾書" in text:
+        stripped = text.strip()
+
+        # --- Section boundary ---
+        if "（参考様式" in stripped:
+            if "代表研究機関" in stripped:
+                consent_type = "lead"
+            elif "分担研究機関" in stripped:
+                consent_type = "partner"
+            elif "補助金" in stripped:
+                consent_type = "hojokin"
             in_consent = True
-        elif text.strip().startswith("（様式") or "チェックリスト" in text:
+            continue
+        if "応募・実施承諾書" in stripped:
+            if consent_type is None:
+                consent_type = "lead"  # 最初の承諾書（heading 不在時）
+            in_consent = True
+            continue
+        if stripped.startswith("（様式") or "チェックリスト" in stripped:
             in_consent = False
+            consent_type = None
             continue
         if not in_consent:
             continue
 
-        for run in para.runs:
-            rt = run.text
-            # Period placeholder: R8～R　 → R8～R10 etc.
-            if "R8～R\u3000" in rt:
-                end = str(proj.get("period_end", "R10"))
-                run.text = rt.replace("R8～R\u3000", f"R8～{end}")
+        # --- Paragraph-level fills（lead / partner で挙動を分岐） ---
+        if stripped.startswith("□□") and consent_type == "lead":
+            if lead_signer_display:
+                _set_para_text(para, lead_signer_display)
+                fills += 1
+                continue
+        if (stripped.startswith("研究代表者") and "所属氏名" in stripped
+                and pi_display):
+            _set_para_text(
+                para, f"研究代表者\u3000所属氏名：\u3000{pi_display}"
+            )
+            fills += 1
+            continue
+        if (stripped.startswith("研究分担者") and "所属氏名" in stripped
+                and co_display):
+            _set_para_text(
+                para, f"研究分担者\u3000所属氏名：\u3000{co_display}"
+            )
+            fills += 1
+            continue
+        if stripped.startswith("研究課題名：") and title_ja:
+            _set_para_text(para, f"研究課題名：\u3000{title_ja}")
+            fills += 1
+            continue
+        if stripped.startswith("代表研究機関名：") and inst_name:
+            _set_para_text(para, f"代表研究機関名：{inst_name}")
+            fills += 1
+            continue
 
-    print("  ✓ 参考様式 (best-effort)")
+        # --- Run-level fills（元号年 placeholder） ---
+        _patch_runs(para)
+
+    print(f"  ✓ 参考様式 placeholder fill ({fills} 段落)")
 
 
 # ============================================================================
@@ -745,12 +853,32 @@ def delete_sections(doc, tables, cfg, res):
                 remove.add(i)
 
     # --- 2. 補助金参考様式: delete for 委託事業 (S/A/C) ---
+    # M15-05: 「補助事業」「補助金」の単純部分一致は本文中の同単語と誤一致し
+    # 削除範囲が肥大する致命的リスク（最悪、様式1-1 以降の全本文を巻き込む）。
+    # ここでは「（参考様式」かつ「補助金」を両方含む見出し段落のみを起点とし、
+    # 削除範囲は次の「（参考様式」見出し or チェックリスト見出し or w:sectPr
+    # 直前 のいずれか早い位置までに限定する。
     if proj_type in ("S", "A", "C"):
-        hi = _find("補助事業")
-        if hi < 0:
-            hi = _find("補助金")
+        hi = -1
+        for i in range(len(children)):
+            txt = _text(children[i])
+            if "（参考様式" in txt and "補助金" in txt:
+                hi = i
+                break
         if hi >= 0:
-            end = ci if (ci >= 0 and ci > hi) else len(children)
+            # 削除終端: 「（参考様式」を含む次の見出し or チェックリスト位置 or
+            # w:sectPr 直前 のうち最も早いもの
+            end = len(children)
+            for i in range(hi + 1, len(children)):
+                if children[i].tag == qn("w:sectPr"):
+                    end = i
+                    break
+                txt = _text(children[i])
+                if "（参考様式" in txt or "チェックリスト" in txt:
+                    end = i
+                    break
+            if ci >= 0 and ci > hi and ci < end:
+                end = ci
             for i in range(hi, end):
                 if children[i].tag != qn("w:sectPr"):
                     remove.add(i)
@@ -759,11 +887,16 @@ def delete_sections(doc, tables, cfg, res):
     if inst_type in ("大学等", "公的研究機関"):
         si = _find("（様式５）")
         if si >= 0:
-            end = _find("承諾書", si + 1)
-            if end < 0:
-                end = _find("参考様式", si + 1)
-            if end < 0:
-                end = si + 1
+            # M15-05 同種: 削除終端を最も早い境界に揃える
+            end = len(children)
+            for i in range(si + 1, len(children)):
+                if children[i].tag == qn("w:sectPr"):
+                    end = i
+                    break
+                txt = _text(children[i])
+                if "（参考様式" in txt or "承諾書" in txt or "（様式" in txt:
+                    end = i
+                    break
             for i in range(si, end):
                 if children[i].tag != qn("w:sectPr"):
                     remove.add(i)
@@ -891,7 +1024,10 @@ def main():
             # Deep-copy and insert table
             new_tbl = copy.deepcopy(tables["4-2"]._element)
             bp.addnext(new_tbl)
-            wrapped = DocxTable(new_tbl, doc)
+            # M15-03: parent は元 4-2 テーブルと同じ python-docx の親
+            # （通常 _Body or _Cell）を使う。素の lxml 要素 (doc.element.body) を
+            # 渡すと .part プロパティが解決できず、cell 拡張時に AttributeError。
+            wrapped = DocxTable(new_tbl, tables["4-2"]._parent)
             fill_4(wrapped, cfg, co_list[ci],
                    f"様式4-2 ({ci + 1}/{len(co_list)} {co_list[ci]['name_ja']})")
             prev_el = new_tbl

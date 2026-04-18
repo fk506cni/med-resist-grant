@@ -28,14 +28,23 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 # --- .env 読み込み ---
+# N15-09: .env が無い場合は .env.example を fallback として読み込み警告で続行。
+# 提出当日のリカバリ運用や予備機での起動失敗を避ける。GCHAT_WEBHOOK_URL 等の
+# 機微変数は空のままになるため、Webhook 通知は内部で skip 動作となる。
 if [[ -f "$PROJECT_ROOT/.env" ]]; then
-    # コメント行・空行を除外して source
     set -a
     # shellcheck disable=SC1091
     source "$PROJECT_ROOT/.env"
     set +a
+elif [[ -f "$PROJECT_ROOT/.env.example" ]]; then
+    echo "WARN: .env が見つかりません。.env.example を fallback として読み込みます。" >&2
+    echo "      → 機微変数 (GCHAT_WEBHOOK_URL 等) は空のままで動作します。" >&2
+    set -a
+    # shellcheck disable=SC1091
+    source "$PROJECT_ROOT/.env.example"
+    set +a
 else
-    echo "ERROR: .env が見つかりません。.env.example をコピーして作成してください。" >&2
+    echo "ERROR: .env も .env.example も見つかりません。.env.example を作成してください。" >&2
     exit 1
 fi
 

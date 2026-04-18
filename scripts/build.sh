@@ -12,6 +12,8 @@
 #   inject     ナラティブ挿入 (step02_docx/inject_narrative.py)
 #   security   セキュリティ文書記入 (step02_docx/fill_security.py)
 #   excel      Excel記入 (step03_excel/fill_excel.py)
+#   merge      PDF結合 (step04_package/merge_pdfs.py, MERGE_MODE=submission|interview)
+#              — data/products/ の各様式 PDF が既に揃っている前提（通常は roundtrip.sh Phase 5 から呼ばれる）
 #   package    パッケージング (scripts/create_package.sh)
 #   clean      全output/をクリーン
 #   check      全出力ファイルの存在とサイズチェック
@@ -106,7 +108,13 @@ ensure_docker_image() {
 build_validate() {
     local script="scripts/validate_yaml.py"
     echo "=== validate: YAMLバリデーション ==="
-    if run_python "$script" --setup-dir "$SETUP_DIR"; then
+    # SETUP_DIR が data/dummy/ を指す場合は placeholder 検査を warning に降格
+    # （dummy YAML は意図的に placeholder を含む E2E テストデータ）
+    local extra_args=()
+    if [[ "$SETUP_DIR" == *dummy* ]]; then
+        extra_args+=("--allow-placeholder")
+    fi
+    if run_python "$script" --setup-dir "$SETUP_DIR" "${extra_args[@]}"; then
         RESULTS[validate]="OK"
     else
         RESULTS[validate]="FAIL"
@@ -261,6 +269,31 @@ build_excel() {
     fi
 }
 
+build_merge() {
+    # PDF結合（pypdf）。data/products/ に各様式 PDF が既に揃っていることが前提。
+    # MERGE_MODE=submission（応募時、デフォルト）または interview（面接時）。
+    local script="main/step04_package/merge_pdfs.py"
+    if [[ ! -f "$script" ]]; then
+        RESULTS[merge]="SKIP"
+        echo "SKIP: $script が未作成です"
+        return
+    fi
+    local mode="${MERGE_MODE:-submission}"
+    echo "=== merge: PDF結合 (mode=$mode) ==="
+    if run_python "$script" \
+        --package "$SETUP_DIR/package.yaml" \
+        --config "$SETUP_DIR/config.yaml" \
+        --researchers "$SETUP_DIR/researchers.yaml" \
+        --products-dir "data/products" \
+        --output-dir "data/products" \
+        --mode "$mode"; then
+        RESULTS[merge]="OK"
+    else
+        RESULTS[merge]="FAIL"
+        return 1
+    fi
+}
+
 build_package() {
     local script="scripts/create_package.sh"
     if [[ ! -f "$script" ]]; then
@@ -316,6 +349,7 @@ do_check() {
     local ok=0
     local missing=0
     local oversize=0
+    local warnings=0
     local MAX_SIZE=$((10 * 1024 * 1024))  # 10MB
 
     check_file() {
@@ -355,8 +389,59 @@ do_check() {
         missing=$((missing + 1))
     fi
 
+    # N15-01: betten 件数を researchers.yaml の人数と照合
+    # （PI 1名 + co_investigators の合計と一致するはず）
+    local expected_betten=0
+    if [[ -f "$SETUP_DIR/researchers.yaml" ]] && command -v python3 &>/dev/null; then
+        expected_betten=$(python3 -c "
+import yaml
+try:
+    d = yaml.safe_load(open('$SETUP_DIR/researchers.yaml'))
+    pi = 1 if d.get('pi') else 0
+    co = len(d.get('co_investigators', []) or [])
+    print(pi + co)
+except Exception:
+    print(0)
+" 2>/dev/null || echo 0)
+    fi
+    if [[ "$expected_betten" -gt 0 ]]; then
+        if [[ "$betten_found" -ne "$expected_betten" ]]; then
+            printf "  ✗ %-55s (実 %d / 期待 %d)\n" \
+                "betten 件数" "$betten_found" "$expected_betten"
+            warnings=$((warnings + 1))
+        else
+            printf "  ✓ %-55s (%d 件 = researchers.yaml と一致)\n" \
+                "betten 件数照合" "$betten_found"
+        fi
+    fi
+
+    # N15-08: youshiki1_5_filled.docx の inject 適用状態
+    # （narrative の wp:anchor / asvg:svgBlob marker が存在するか）
+    local filled="main/step02_docx/output/youshiki1_5_filled.docx"
+    if [[ -f "$filled" ]] && command -v unzip &>/dev/null; then
+        local marker_count
+        marker_count=$(unzip -p "$filled" word/document.xml 2>/dev/null \
+            | grep -cE 'wp:anchor|asvg:svgBlob' || true)
+        if [[ "${marker_count:-0}" -gt 0 ]]; then
+            printf "  ✓ %-55s (marker=%d)\n" \
+                "inject 適用済み (asvg:svgBlob/wp:anchor)" "$marker_count"
+        else
+            printf "  ✗ %-55s (marker 不在 — narrative 未注入の可能性)\n" \
+                "inject 適用検査"
+            warnings=$((warnings + 1))
+        fi
+    fi
+
+    # N15-01: 結合 PDF（応募時の最終提出物）
+    local merged="data/products/submission_merged.pdf"
+    if [[ -f "$merged" ]]; then
+        check_file "$merged"
+    else
+        printf "  - %-55s (未生成 — roundtrip Phase 5 未実施)\n" "$merged"
+    fi
+
     echo ""
-    echo "結果: $ok 存在 / $missing 未生成 / $oversize サイズ超過"
+    echo "結果: $ok 存在 / $missing 未生成 / $oversize サイズ超過 / $warnings 警告"
 
     if [[ "$oversize" -gt 0 ]]; then
         echo "WARNING: 10MBを超えるファイルがあります（提出制限: 各10MB以下）" >&2
@@ -373,12 +458,13 @@ run_step() {
         inject)    build_inject ;;
         security)  build_security ;;
         excel)     build_excel ;;
+        merge)     build_merge ;;
         package)   build_package ;;
         clean)     do_clean ;;
         check)     do_check ;;
         *)
             echo "ERROR: 不明なサブコマンド: $step" >&2
-            echo "  有効なサブコマンド: validate, forms, narrative, inject, security, excel, package, clean, check" >&2
+            echo "  有効なサブコマンド: validate, forms, narrative, inject, security, excel, merge, package, clean, check" >&2
             exit 1
             ;;
     esac

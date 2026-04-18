@@ -32,7 +32,8 @@ RUN pip install --no-cache-dir \
     openpyxl \
     pyyaml \
     ruamel.yaml \
-    Jinja2
+    Jinja2 \
+    pypdf
 
 WORKDIR /workspace
 

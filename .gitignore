@@ -9,8 +9,9 @@ refs/*
 __archives/*
 !__archives/.gitkeep
 
-docs/__archives/*
-!docs/__archives/.gitkeep
+# N15-05: docs/__archives/ は敵対的レビュー履歴の保存場所として
+# git 管理に戻す（共同研究者に履歴を共有、将来の改善 PDCA に活用）。
+# 注: 大容量バイナリは __archives/（top-level）に置く運用を継続。
 
 jank/*
 !jank/.gitkeep
@@ -22,6 +23,9 @@ data/output/*
 !data/output/.gitkeep
 data/products/*
 !data/products/.gitkeep
+# I15-03: data/original/ は参照用 PDF 等の大容量バイナリの置き場として
+# 利用するため git 管理外（用途は CLAUDE.md に追記済）
+data/original/
 
 # --- ステップ出力 ---
 main/*/output/*
@@ -81,3 +85,8 @@ message.md
 
 # --- 開発マーカー ---
 .development
+
+# --- Claude Code ローカル設定 (N15-03) ---
+# settings.local.json には機微なローカル権限/MCP 設定が含まれる可能性があるため
+# 誤コミット防止として除外する
+.claude/

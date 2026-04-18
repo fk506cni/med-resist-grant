@@ -186,6 +186,66 @@ co_investigators:
     effort_percent: 20
     tasks: "薬剤耐性菌の分離・同定、薬剤感受性試験の実施・評価"
 
+  # M15-07: 2 名以上の co_investigator が居る場合の E2E テストとして追加。
+  #   - fill_forms.py の様式4-2 duplicate 経路（M15-03）をカバー
+  #   - fill_security.py の同姓ハンドリング（_family_name → "tanaka"）をカバー
+  #   - dummy は本番と独立、placeholder（XX/20XX 等）は意図的に残す
+  - name_ja: "□□ □□"
+    name_en: "Jiro TANAKA"
+    furigana: "たなか じろう"
+    nationality: "日本"
+
+    birth_date: "19XX年XX月XX日"
+    age: XX
+
+    researcher_id: "00000002"
+
+    affiliation: "○○大学"
+    department: "○○学研究科"
+    position: "講師"
+
+    institution: "○○大学"
+
+    education:
+      school: "○○大学大学院○○学研究科"
+      graduation_year: "20XX年3月修了"
+      degree: "博士（工学）"
+
+    specialty: "医療情報学、シミュレーション工学"
+
+    career_history:
+      - year_month: "20XX年4月"
+        description: "○○大学○○学研究科 助教"
+      - year_month: "20XX年4月"
+        description: "○○大学○○学研究科 講師（現職）"
+
+    funding_history:
+      - program: "科学研究費助成事業 若手研究"
+        title: "○○に関する研究"
+        role: "代表"
+        period: "20XX年度〜20XX年度"
+        amount: "○○千円"
+
+    awards: []
+
+    publications:
+      - authors: "Tanaka J, Yamada T"
+        title: "○○に関する研究"
+        journal: "Journal of ○○"
+        year: 20XX
+
+    patents: []
+
+    researchmap_id: "ZZZZZZZ"
+
+    contact:
+      postal: "〒XXX-XXXX 東京都○○区○○ 1-2-3 ○○大学○○学研究科"
+      tel: "03-XXXX-XXXX"
+      email: "coinvestigator2@example.ac.jp"
+
+    effort_percent: 15
+    tasks: "医療シミュレーション基盤の構築、データ解析"
+
 # ---------------------------------------------------------------------------
 # admin_contact: 経理事務担当者
 # → 様式1-1 ⑩

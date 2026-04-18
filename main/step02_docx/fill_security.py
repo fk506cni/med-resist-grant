@@ -485,10 +485,21 @@ def main():
     print(f"  → {besshi5_out}")
 
     # === 別添 ===
+    # N15-07: 同姓衝突時はファイル名に role suffix（pi / co1 / co2 …）を
+    # 付与して視認性を確保する（衝突がなければ従来命名を維持）。
     print("\n=== 別添: セキュリティ自己申告書 ===")
+    families = [_family_name(r[1]) for r in researchers]
+    family_counts = {}
+    for f in families:
+        family_counts[f] = family_counts.get(f, 0) + 1
+
     for idx, (name_ja, name_en, affil, dept, pos) in enumerate(researchers):
-        family = _family_name(name_en)
-        fname = f"betten_{idx + 1:02d}_{family}.docx"
+        family = families[idx]
+        if family_counts[family] > 1:
+            role = "pi" if idx == 0 else f"co{idx}"
+            fname = f"betten_{idx + 1:02d}_{family}_{role}.docx"
+        else:
+            fname = f"betten_{idx + 1:02d}_{family}.docx"
         betten_out = outdir / fname
         shutil.copy2(args.betten, betten_out)
         doc_b = Document(str(betten_out))
