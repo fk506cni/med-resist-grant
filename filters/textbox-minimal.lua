@@ -36,11 +36,16 @@ end
 
 --- Allowed enum values for string attributes (C11-02 whitelist).
 local ENUMS = {
-  ["anchor-h"] = { page = true, margin = true, paragraph = true, column = true },
-  ["anchor-v"] = { page = true, margin = true, paragraph = true, line = true },
-  ["wrap"]     = { tight = true, square = true, none = true },
-  ["behind"]   = { ["true"] = true, ["false"] = true },
-  ["valign"]   = { top = true, bottom = true, center = true },
+  ["anchor-h"]    = { page = true, margin = true, paragraph = true, column = true },
+  ["anchor-v"]    = { page = true, margin = true, paragraph = true, line = true },
+  ["wrap"]        = { tight = true, square = true, none = true },
+  ["behind"]      = { ["true"] = true, ["false"] = true },
+  ["valign"]      = { top = true, bottom = true, center = true },
+  -- C 案: kind=table/mixed のとき wrap_textbox.py で適用する装飾。
+  -- "minimal" は booktabs（上下線＋ヘッダ下線）、"bordered" はフルグリッド、
+  -- "banded" はヘッダ網掛け＋上下線。"none" は装飾を入れず reference.docx の
+  -- Table スタイルに完全に任せる（pre-C 案互換）。
+  ["table-style"] = { minimal = true, bordered = true, banded = true, none = true },
 }
 
 --- Validate enum attribute; abort on unknown value.
@@ -67,6 +72,34 @@ local function textbox_marker(text)
     '<w:t xml:space="preserve">' .. xml_escape(text) .. '</w:t></w:r></w:p>')
 end
 
+--- Classify a .textbox Div's top-level content.
+--- Returns one of "image", "table", "mixed" — where "mixed" means both a
+--- Table and at least one non-Table block are present at the Div's top
+--- level. Nested containers (BlockQuote, Div) are probed one level deep
+--- so that a Table wrapped in a lightweight container still counts.
+--- Used by wrap_textbox.py to decide whether to apply table-width
+--- fitting. Defaults to "image" when the Div has no Table, which
+--- preserves the pre-B 案 code path for all existing image textboxes.
+local function classify_content(content)
+  local has_table, has_other = false, false
+  for _, c in ipairs(content) do
+    if c.t == "Table" then
+      has_table = true
+    else
+      has_other = true
+      -- Probe one level deep for a Table wrapped in Div/BlockQuote.
+      if c.content then
+        for _, inner in ipairs(c.content) do
+          if inner.t == "Table" then has_table = true end
+        end
+      end
+    end
+  end
+  if has_table and has_other then return "mixed"
+  elseif has_table then return "table"
+  else return "image" end
+end
+
 --- Process a .textbox Div: emit START marker, content, END marker.
 local function process_textbox(div)
   local attrs = div.attributes
@@ -80,6 +113,10 @@ local function process_textbox(div)
   local behind = attrs["behind"] or "false"
   local valign = attrs["valign"] or "top"
   local page = attrs["page"]
+  local kind = classify_content(div.content)
+  -- C 案: table-style はユーザが明示したときだけ伝搬させ、
+  -- 既定値の選択は wrap_textbox.py 側で kind に応じて行わせる。
+  local table_style = attrs["table-style"]
 
   -- N11-02: reject empty-dimension textboxes up front.
   if width <= 0 or height <= 0 then
@@ -96,12 +133,16 @@ local function process_textbox(div)
   check_enum("wrap", wrap)
   check_enum("behind", behind)
   check_enum("valign", valign)
+  if table_style then check_enum("table-style", table_style) end
 
   local params = string.format(
-    "TEXTBOX_START:width=%d;height=%d;pos-x=%d;pos-y=%d;anchor-h=%s;anchor-v=%s;wrap=%s;behind=%s;valign=%s",
-    width, height, pos_x, pos_y, anchor_h, anchor_v, wrap, behind, valign)
+    "TEXTBOX_START:width=%d;height=%d;pos-x=%d;pos-y=%d;anchor-h=%s;anchor-v=%s;wrap=%s;behind=%s;valign=%s;kind=%s",
+    width, height, pos_x, pos_y, anchor_h, anchor_v, wrap, behind, valign, kind)
   if page then
     params = params .. ";page=" .. page
+  end
+  if table_style then
+    params = params .. ";table-style=" .. table_style
   end
 
   local result = pandoc.List()

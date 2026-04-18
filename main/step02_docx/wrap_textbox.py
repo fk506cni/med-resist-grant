@@ -125,6 +125,229 @@ def parse_attrs(text):
 # Content resizing
 # ============================================================================
 
+# 1 twip = 1/20 pt, 1 pt = 12700 EMU → 1 twip = 635 EMU.
+_EMU_PER_TWIP = 635
+
+
+def fit_tables_to_textbox_width(content_elements, max_width_emu):
+    """Rewrite OOXML table widths so they fit inside the textbox.
+
+    Pandoc emits ``<w:tblW w:type="auto" w:w="0">`` and a ``w:tblGrid``
+    sized for the full page text area. Inside a narrow textbox the
+    right columns silently clip (LibreOffice/Word both). This helper:
+
+    1. Sets ``w:tblW`` to ``type="dxa" w="<content_twips>"``
+    2. Scales each ``w:gridCol/@w`` proportionally so the grid sum
+       matches ``content_twips``
+    3. Scales any per-cell ``w:tcW/@w`` by the same ratio
+
+    Called only for ``kind in {"table", "mixed"}`` textboxes — image
+    textboxes take the untouched path so existing outputs stay bit-
+    identical (B 案 非破壊要件).
+    """
+    content_twips = max(1, max_width_emu // _EMU_PER_TWIP)
+    for elem in content_elements:
+        for tbl in elem.iter(f"{W}tbl"):
+            tbl_pr = tbl.find(f"{W}tblPr")
+            if tbl_pr is not None:
+                tbl_w = tbl_pr.find(f"{W}tblW")
+                if tbl_w is None:
+                    tbl_w = ET.SubElement(tbl_pr, f"{W}tblW")
+                tbl_w.set(f"{W}type", "dxa")
+                tbl_w.set(f"{W}w", str(content_twips))
+
+            grid = tbl.find(f"{W}tblGrid")
+            cols = grid.findall(f"{W}gridCol") if grid is not None else []
+            widths = []
+            for c in cols:
+                try:
+                    widths.append(int(c.get(f"{W}w", "0")))
+                except ValueError:
+                    widths.append(0)
+            total = sum(widths) or len(cols) or 1
+            ratio = content_twips / total
+            new_widths = [max(1, int(w * ratio)) for w in widths]
+            # Distribute rounding residue onto the last column so the
+            # widths sum exactly to content_twips.
+            if new_widths:
+                new_widths[-1] += content_twips - sum(new_widths)
+            for c, nw in zip(cols, new_widths):
+                c.set(f"{W}w", str(nw))
+
+            # Scale per-cell tcW the same way. Rows need not share the
+            # grid partitioning (merged cells), so we rescale each tcW
+            # by ratio rather than forcing it to a specific grid slot.
+            for tc_w in tbl.iter(f"{W}tcW"):
+                if tc_w.get(f"{W}type") != "dxa":
+                    continue
+                try:
+                    old = int(tc_w.get(f"{W}w", "0"))
+                except ValueError:
+                    continue
+                tc_w.set(f"{W}w", str(max(1, int(old * ratio))))
+
+
+# ----------------------------------------------------------------------------
+# C 案: textbox 内テーブルの装飾 (booktabs / grid / banded)
+# ----------------------------------------------------------------------------
+#
+# reference.docx 側の default Table style (w:styleId="Table") は firstRow の
+# bottom border しか定義していないため、LibreOffice / Word で見た目がほぼ無
+# 装飾になる。C 案では textbox の table-style 属性に応じて直接 w:tblBorders /
+# w:tcBorders / w:shd を注入する。reference.docx 自体は触らず、OOXML レベル
+# の直接指定だけで「小綺麗」化する方針（build.sh が reference.docx を毎回
+# fix_reference_styles.py で再生成する設計を尊重）。
+#
+# schema order: CT_TblPrBase / CT_TcPrBase は子要素の出現順が厳格。新規要素
+# を無計画に append すると Word が「修復が必要」と判定するため、_insert_by_order
+# で spec の位置へ挿入する。
+
+_TBLPR_ORDER = [
+    "tblStyle", "tblpPr", "tblOverlap", "bidiVisual",
+    "tblStyleRowBandSize", "tblStyleColBandSize",
+    "tblW", "jc", "tblCellSpacing", "tblInd",
+    "tblBorders", "shd",
+    "tblLayout", "tblCellMar", "tblLook", "tblCaption", "tblDescription",
+]
+
+_TCPR_ORDER = [
+    "cnfStyle", "tcW", "gridSpan",
+    "hMerge", "vMerge",
+    "tcBorders", "shd",
+    "noWrap", "tcMar", "textDirection", "tcFitText",
+    "vAlign", "hideMark", "headers",
+]
+
+# table-style → side → val (single / nil)。省略された side は "nil"。
+_BORDER_SPECS = {
+    "minimal":  {"top": "single", "bottom": "single"},
+    "bordered": {"top": "single", "left": "single", "bottom": "single",
+                 "right": "single", "insideH": "single", "insideV": "single"},
+    "banded":   {"top": "single", "bottom": "single"},
+}
+
+_BORDER_SIDES = ("top", "left", "bottom", "right", "insideH", "insideV")
+
+# banded の header 背景色（light gray）。Office 標準の 25% gray に近い値。
+_BANDED_HEADER_FILL = "D9D9D9"
+
+
+def _local_tag(clark_tag):
+    """Clark notation '{ns}Tag' → 'Tag'."""
+    return clark_tag.rsplit("}", 1)[-1]
+
+
+def _insert_by_order(parent, new_child, order_list):
+    """Insert ``new_child`` into ``parent`` respecting the CT schema order.
+
+    Elements not present in ``order_list`` are left where they are and do
+    not influence placement (they're treated as "free-floating"). The new
+    element is placed just before the first existing sibling whose
+    schema-order priority is greater than the new element's.
+    """
+    new_local = _local_tag(new_child.tag)
+    try:
+        new_prio = order_list.index(new_local)
+    except ValueError:
+        parent.append(new_child)
+        return
+    insert_idx = len(list(parent))
+    for i, existing in enumerate(list(parent)):
+        try:
+            existing_prio = order_list.index(_local_tag(existing.tag))
+        except ValueError:
+            continue
+        if existing_prio > new_prio:
+            insert_idx = i
+            break
+    parent.insert(insert_idx, new_child)
+
+
+def _make_border(side, val="single", sz=4, color="auto"):
+    """Build one <w:{side}> border element for w:tblBorders / w:tcBorders."""
+    b = ET.Element(f"{W}{side}")
+    b.set(f"{W}val", val)
+    if val != "nil":
+        b.set(f"{W}sz", str(sz))
+        b.set(f"{W}space", "0")
+        b.set(f"{W}color", color)
+    return b
+
+
+def _build_tbl_borders(spec):
+    """Build a full <w:tblBorders> element with all 6 sides."""
+    bs = ET.Element(f"{W}tblBorders")
+    for side in _BORDER_SIDES:
+        bs.append(_make_border(side, spec.get(side, "nil")))
+    return bs
+
+
+def _apply_header_decoration(tbl, style):
+    """Add a bottom border (minimal/banded) and shading (banded) to the
+    first row's cells. Pandoc marks markdown header rows with
+    ``<w:trPr><w:tblHeader/>`` — we prefer that signal but fall back to the
+    first physical row when absent (pandoc always emits one).
+    """
+    if style not in {"minimal", "banded"}:
+        return
+    header_row = None
+    for tr in tbl.findall(f"{W}tr"):
+        tr_pr = tr.find(f"{W}trPr")
+        if tr_pr is not None and tr_pr.find(f"{W}tblHeader") is not None:
+            header_row = tr
+            break
+    if header_row is None:
+        header_row = tbl.find(f"{W}tr")
+    if header_row is None:
+        return
+    for tc in header_row.findall(f"{W}tc"):
+        tc_pr = tc.find(f"{W}tcPr")
+        if tc_pr is None:
+            tc_pr = ET.Element(f"{W}tcPr")
+            tc.insert(0, tc_pr)
+        # Replace any existing tcBorders / shd we might have set on a
+        # previous run (idempotency — useful for re-invocation tests).
+        for existing in tc_pr.findall(f"{W}tcBorders"):
+            tc_pr.remove(existing)
+        for existing in tc_pr.findall(f"{W}shd"):
+            tc_pr.remove(existing)
+        tcb = ET.Element(f"{W}tcBorders")
+        tcb.append(_make_border("bottom", "single"))
+        _insert_by_order(tc_pr, tcb, _TCPR_ORDER)
+        if style == "banded":
+            shd = ET.Element(f"{W}shd")
+            shd.set(f"{W}val", "clear")
+            shd.set(f"{W}color", "auto")
+            shd.set(f"{W}fill", _BANDED_HEADER_FILL)
+            _insert_by_order(tc_pr, shd, _TCPR_ORDER)
+
+
+def apply_table_style(content_elements, style):
+    """Apply C 案 table decoration (borders + optional header shading).
+
+    ``style`` ∈ {"minimal", "bordered", "banded", "none"}. "none" is a
+    deliberate no-op so callers can opt out and fall back entirely to
+    the reference.docx Table style. Unknown values are treated as
+    "none" (defensive — lua filter's enum check should prevent this).
+    """
+    if style == "none":
+        return
+    spec = _BORDER_SPECS.get(style)
+    if spec is None:
+        return
+    for elem in content_elements:
+        for tbl in elem.iter(f"{W}tbl"):
+            tbl_pr = tbl.find(f"{W}tblPr")
+            if tbl_pr is None:
+                tbl_pr = ET.Element(f"{W}tblPr")
+                tbl.insert(0, tbl_pr)
+            # Replace any existing tblBorders for idempotency.
+            for existing in tbl_pr.findall(f"{W}tblBorders"):
+                tbl_pr.remove(existing)
+            _insert_by_order(tbl_pr, _build_tbl_borders(spec), _TBLPR_ORDER)
+            _apply_header_decoration(tbl, style)
+
+
 def resize_images_in_content(content_elements, max_width_emu):
     """Resize inline images in content to fit within max_width_emu.
 
@@ -191,6 +414,11 @@ def build_textbox_paragraph(attrs, content_elements, z_order, id_base):
     wrap = attrs.get("wrap", "tight")
     behind = attrs.get("behind", "true")
     behind_val = "1" if behind == "true" else "0"
+    # B 案: textbox-minimal.lua が emit する content 種別。
+    # "image" (default, legacy 互換) / "table" / "mixed"。
+    # "image" 以外のときだけ fit_tables_to_textbox_width を通すことで、
+    # 既存画像 textbox の出力を bit-identical に保つ。
+    kind = attrs.get("kind", "image")
 
     # Internal margin (EMU): minimal — align content to top/edges.
     l_ins = 45720   # ~1.27mm left
@@ -201,6 +429,13 @@ def build_textbox_paragraph(attrs, content_elements, z_order, id_base):
     # Resize images to fit textbox content width.
     content_width = width - l_ins - r_ins
     resize_images_in_content(content_elements, content_width)
+    if kind in ("table", "mixed"):
+        fit_tables_to_textbox_width(content_elements, content_width)
+        # C 案: kind=table/mixed の既定装飾は "minimal" (booktabs 3 本線)。
+        # ユーザが table-style 属性を明示した場合はそちらを優先。"none" を
+        # 指定すると装飾を一切入れず reference.docx の Table スタイル任せ
+        # となり、pre-C 案互換になる。
+        apply_table_style(content_elements, attrs.get("table-style", "minimal"))
 
     anchor = ET.Element(f"{WP}anchor")
     anchor.set("distT", "0")
