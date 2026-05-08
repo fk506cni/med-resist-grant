@@ -35,41 +35,66 @@ pi:
   nationality: "日本"  # PIは日本国籍必須（募集要項 §2.2.3）
 
   # --- 様式4-1 Row 1: 生年月日/年齢 ---
-  birth_date: "19XX年XX月XX日"
-  age: XX  # 応募時点の年齢
+  # 出典: refs/3.履歴書様式（教員、特定研究員）_fk.doc
+  birth_date: "1983年10月17日"
+  age: 42  # 2026-05-10応募時点（10月で43歳）
 
   # --- 様式4-1 Row 2: 研究者番号 ---
-  researcher_id: "○○○○○○○○"  # e-Rad研究者番号（8桁）
+  # 出典: refs/effort_fk.pdf
+  researcher_id: "60856384"
 
   # --- 様式4-1 Row 3: 所属機関・部局・職/職階 ---
   # → 様式1-1 ⑨, 様式7 C/E列にも使用
+  # ※ 履歴書では「医学研究科リアルワールドデータ研究開発講座 特定研究員」と記載されているが、
+  #   応募書類ではユーザ確認に基づき下記を採用（第16回セッション 2026-05-08）
   affiliation: "京都大学"
   department: "医学部附属病院 医療情報企画部"
   position: "特定助教"
 
   # --- 様式4-1 Row 3: 最終学歴・学位 ---
+  # 出典: refs/3.履歴書様式（教員、特定研究員）_fk.doc
   education:
-    school: "○○大学大学院○○学研究科"
-    graduation_year: "20XX年3月修了"
-    degree: "博士（○○学）"
+    school: "京都大学大学院医学研究科 博士課程医学専攻"
+    graduation_year: "2019年3月修了（2021年7月学位取得）"
+    degree: "博士（医学）"
 
   # --- 様式4-1 Row 4: 専門分野 ---
   specialty: "医療情報学、医療ビッグデータ解析、シミュレーション工学"
 
   # --- 様式4-1 Row 5: 主な経歴 ---
+  # 出典: refs/3.履歴書様式（教員、特定研究員）_fk.doc 職歴欄
   career_history:
-    - year_month: "20XX年4月"
-      description: "○○大学○○ ○○（○○）"
-    - year_month: "20XX年4月"
-      description: "京都大学医学部附属病院 医療情報企画部 特定助教（現職）"
+    - year_month: "2008年4月"
+      description: "京都大学医学部附属病院 初期研修医"
+    - year_month: "2010年4月"
+      description: "高松赤十字病院 消化器外科 修練医"
+    - year_month: "2012年4月"
+      description: "一般財団法人平成紫川会 小倉記念病院 外科"
+    - year_month: "2015年4月"
+      description: "京都大学大学院医学研究科 臨床腫瘍薬理学・緩和医療学講座 特定研究員"
+    - year_month: "2019年4月"
+      description: "京都大学大学院医学研究科 リアルワールドデータ研究開発講座 特定研究員"
+    - year_month: "現在"
+      description: "京都大学医学部附属病院 医療情報企画部 特定助教"
 
   # --- 様式4-1 Row 6: 特筆すべき競争的研究資金獲得実績 ---
+  # 出典: refs/effort_fk.pdf（採択済課題＋みなし計上、2026年度時点）
   funding_history:
-    - program: "○○"
-      title: "○○に関する研究"
+    - program: "文部科学省 科学研究費 若手研究"
+      title: "スマートフォンを利用した非接触型呼吸モニタリング手法の開発"
       role: "代表"
-      period: "20XX年度〜20XX年度"
-      amount: "○○千円"
+      period: "令和6年度〜令和8年度"
+      amount: "1,300千円（令和8年度配分）"
+    - program: "厚生労働省 難治性疾患政策研究事業（24FC0401）"
+      title: "指定難病患者データベース・小児慢性特定疾病児童等データベースの運用に資する研究"
+      role: "分担"
+      period: "令和6年度〜令和8年度"
+      amount: "0千円（分担）"
+    - program: "国立研究開発法人日本医療研究開発機構（AMED）循環器疾患・糖尿病等生活習慣病対策実用化研究事業"
+      title: "大規模言語モデルで構築する栄養指導記録構造化データベースを用いた糖尿病栄養指導エビデンス創出研究"
+      role: "分担"
+      period: "令和6年度〜令和8年度"
+      amount: "0千円（分担）"
 
   # --- 様式4-1 Row 7: 受賞歴・表彰歴 ---
   awards:
@@ -102,10 +127,13 @@ pi:
   # --- 様式1-1 ⑨連絡先 ---
   contact:
     postal: "〒606-8507 京都府京都市左京区聖護院川原町54 京都大学医学部附属病院 医療情報企画部"
-    tel: "075-○○○-○○○○"
-    email: "○○@kuhp.kyoto-u.ac.jp"
+    tel: "075-366-7701"
+    fax: "075-366-7704"  # 現時点で様式フィールドには出力されないが参考値として保持
+    email: "fkeita@kuhp.kyoto-u.ac.jp"
 
   # --- エフォート・担当業務 ---
+  # ※ effort_fk.pdf 確認: 採択済 20% (若手10+指定難病DB 5+循環器糖尿病LLM 5) +
+  #   本研究 40% = 60% で残り 40% は教育・診療・社会活動相当
   effort_percent: 40
   tasks: "研究統括、医療ビッグデータ解析・影響評価モデル開発"
 
@@ -115,16 +143,17 @@ pi:
 # 各要素は pi と同様の構造 + institution フィールド
 # ---------------------------------------------------------------------------
 co_investigators:
-  # --- 黒田 知宏 教授 ---
+  # --- 黒田 知宏 教授（医療情報企画部 教授 / 京大病院 CIO） ---
+  # 出典: https://kuroda.kuhp.kyoto-u.ac.jp/ (個人公式サイト)
   - name_ja: "黒田 知宏"
     name_en: "Tomohiro KURODA"
     furigana: "くろだ ともひろ"
     nationality: "日本"
 
-    birth_date: "19XX年XX月XX日"
-    age: XX
+    birth_date: "1971年4月19日"
+    age: 54  # 2026年5月応募時点
 
-    researcher_id: "○○○○○○○○"
+    researcher_id: "要確認"  # e-Rad 研究者番号 — 本人に確認のこと
 
     affiliation: "京都大学"
     department: "医学部附属病院 医療情報企画部"
@@ -132,57 +161,64 @@ co_investigators:
     institution: "京都大学"
 
     education:
-      school: "○○大学大学院○○学研究科"
-      graduation_year: "○○年○月修了"
-      degree: "博士（○○学）"
+      school: "奈良先端科学技術大学院大学 情報科学研究科"
+      graduation_year: "1998年3月修了"
+      degree: "博士（工学）"
 
-    specialty: "医療情報学、病院情報システム、医療データ解析"
+    specialty: "医療情報学、病院情報システム、手話言語工学、ウェアラブルコンピューティング、遠隔医療、支援技術"
 
     career_history:
-      - year_month: "○○年○月"
-        description: "○○"
-      - year_month: "○○年○月"
-        description: "京都大学医学部附属病院 医療情報企画部 教授（現職）"
+      - year_month: "1994年3月"
+        description: "京都大学工学部情報工学科 卒業"
+      - year_month: "1998年4月"
+        description: "奈良先端科学技術大学院大学 情報科学研究科 助教授（後に准教授）"
+      - year_month: "2013年8月"
+        description: "京都大学医学部附属病院 医療情報企画部 教授／京大病院 CIO（現職）"
 
     funding_history:
-      - program: "○○"
-        title: "○○に関する研究"
-        role: "○○"
-        period: "○○年度〜○○年度"
-        amount: "○○千円"
+      - program: "要確認"
+        title: "要確認"
+        role: "代表"
+        period: "要確認"
+        amount: "要確認"
 
-    awards:
-      - year_month: "○○年○月"
-        name: "○○"
+    awards: []
 
     publications:
-      - authors: "Kuroda T, et al."
-        title: "○○"
-        journal: "○○"
-        year: 20XX
+      - authors: "Fukuyama K, Mori Y, Ueshima H, Ito S, Tanabe M, Kuroda T"
+        title: "Medical resource usage for COVID-19 evaluated using the National Database of Health Insurance Claims and Specific Health Checkups of Japan"
+        journal: "PLOS ONE"
+        year: 2024
+      - authors: "Tsutsumi T, Fukuyama K, Kishimoto K, Mori Y, Sugiyama O, Yamamoto G, Kurata M, Ueshima H, Saito K, Kuroda T, Ohtsuru S"
+        title: "Operating table stability and patient safety during an earthquake based on the results of a shaking table experiment"
+        journal: "BJA Open"
+        year: 2024
 
     patents: []
 
-    researchmap_id: "○○○○○○○"
+    researchmap_id: "要確認"
 
     contact:
       postal: "〒606-8507 京都府京都市左京区聖護院川原町54 京都大学医学部附属病院 医療情報企画部"
-      tel: "075-○○○-○○○○"
-      email: "○○@kuhp.kyoto-u.ac.jp"
+      tel: "075-751-3111"  # 京大病院代表（直通は本人確認）
+      email: "要確認"
 
     effort_percent: 10
     tasks: "研究設計、医療情報システムに関する助言"
 
-  # --- ○○ ○○ 教授（医療DX教育研究センター、人選未定） ---
-  - name_ja: "○○ ○○"
-    name_en: "○○ ○○"
-    furigana: "○○ ○○"
+  # --- 森 由希子 教授（医療DX教育研究センター、2026年就任予定） ---
+  # 出典: https://medinfo.kuhp.kyoto-u.ac.jp/members/ に准教授として掲載。
+  #       医療DX教育研究センター教授への就任は当方情報により未公開段階の確定事項。
+  #       詳細プロフィール（学位・生年等）は本人に要確認。
+  - name_ja: "森 由希子"
+    name_en: "Yukiko MORI"
+    furigana: "もり ゆきこ"
     nationality: "日本"
 
-    birth_date: "19XX年XX月XX日"
-    age: XX
+    birth_date: "要確認"
+    age: 0  # 本人に要確認
 
-    researcher_id: "○○○○○○○○"
+    researcher_id: "要確認"  # e-Rad 研究者番号 — 本人に確認のこと
 
     affiliation: "京都大学"
     department: "医療DX教育研究センター"
@@ -190,55 +226,62 @@ co_investigators:
     institution: "京都大学"
 
     education:
-      school: "○○大学大学院○○学研究科"
-      graduation_year: "○○年○月修了"
-      degree: "博士（○○学）"
+      school: "要確認"
+      graduation_year: "要確認"
+      degree: "要確認"
 
-    specialty: "医療ビッグデータ解析、○○"
+    specialty: "医療情報学、医療ビッグデータ解析"
 
     career_history:
-      - year_month: "○○年○月"
-        description: "○○"
-      - year_month: "○○年○月"
-        description: "京都大学 医療DX教育研究センター 教授（現職）"
+      - year_month: "要確認"
+        description: "京都大学医学部附属病院 医療情報企画部 准教授"
+      - year_month: "2026年"
+        description: "京都大学 医療DX教育研究センター 教授（現職、就任予定）"
 
     funding_history:
-      - program: "○○"
-        title: "○○"
-        role: "○○"
-        period: "○○年度〜○○年度"
-        amount: "○○千円"
+      - program: "要確認"
+        title: "要確認"
+        role: "要確認"
+        period: "要確認"
+        amount: "要確認"
 
     awards: []
 
+    # 関連論文: PI 福山との共著が複数存在（PLOS ONE 2024, BJA Open 2024 等）
     publications:
-      - authors: "○○"
-        title: "○○"
-        journal: "○○"
-        year: 20XX
+      - authors: "Fukuyama K, Mori Y, Ueshima H, Ito S, Tanabe M, Kuroda T"
+        title: "Medical resource usage for COVID-19 evaluated using the National Database of Health Insurance Claims and Specific Health Checkups of Japan"
+        journal: "PLOS ONE"
+        year: 2024
+      - authors: "Tsutsumi T, Fukuyama K, Kishimoto K, Mori Y, Sugiyama O, Yamamoto G, Kurata M, Ueshima H, Saito K, Kuroda T, Ohtsuru S"
+        title: "Operating table stability and patient safety during an earthquake based on the results of a shaking table experiment"
+        journal: "BJA Open"
+        year: 2024
 
     patents: []
 
-    researchmap_id: "○○○○○○○"
+    researchmap_id: "要確認"
 
     contact:
       postal: "〒606-8507 京都府京都市左京区聖護院川原町54 京都大学 医療DX教育研究センター"
-      tel: "075-○○○-○○○○"
-      email: "○○@kuhp.kyoto-u.ac.jp"
+      tel: "075-751-3111"  # 京大病院代表（直通は本人確認）
+      email: "要確認"
 
     effort_percent: 15
     tasks: "医療ビッグデータ解析"
 
-  # --- 楠田 佳緒 特定講師 ---
+  # --- 楠田 佳緒 特定講師（医療DX教育研究センター） ---
+  # 出典: https://medinfo.kuhp.kyoto-u.ac.jp/members/ に特定講師として掲載
+  # 詳細プロフィールは本人に要確認。
   - name_ja: "楠田 佳緒"
-    name_en: "Kao KUSUDA"
-    furigana: "くすだ かお"
+    name_en: "Kaori KUSUDA"
+    furigana: "くすだ かおり"
     nationality: "日本"
 
-    birth_date: "19XX年XX月XX日"
-    age: XX
+    birth_date: "要確認"
+    age: 0  # 本人に要確認
 
-    researcher_id: "○○○○○○○○"
+    researcher_id: "要確認"  # e-Rad 研究者番号 — 本人に確認のこと
 
     affiliation: "京都大学"
     department: "医療DX教育研究センター"
@@ -246,41 +289,41 @@ co_investigators:
     institution: "京都大学"
 
     education:
-      school: "○○大学大学院○○学研究科"
-      graduation_year: "○○年○月修了"
-      degree: "博士（○○学）"
+      school: "要確認"
+      graduation_year: "要確認"
+      degree: "要確認"
 
     specialty: "社会インフラ解析、シミュレーション工学、ネットワーク科学"
 
     career_history:
-      - year_month: "○○年○月"
-        description: "○○"
-      - year_month: "○○年○月"
+      - year_month: "要確認"
+        description: "要確認"
+      - year_month: "要確認"
         description: "京都大学 医療DX教育研究センター 特定講師（現職）"
 
     funding_history:
-      - program: "○○"
-        title: "○○"
-        role: "○○"
-        period: "○○年度〜○○年度"
-        amount: "○○千円"
+      - program: "要確認"
+        title: "要確認"
+        role: "要確認"
+        period: "要確認"
+        amount: "要確認"
 
     awards: []
 
     publications:
-      - authors: "Kusuda K, et al."
-        title: "○○"
-        journal: "○○"
-        year: 20XX
+      - authors: "要確認"
+        title: "要確認"
+        journal: "要確認"
+        year: 2024
 
     patents: []
 
-    researchmap_id: "○○○○○○○"
+    researchmap_id: "要確認"
 
     contact:
       postal: "〒606-8507 京都府京都市左京区聖護院川原町54 京都大学 医療DX教育研究センター"
-      tel: "075-○○○-○○○○"
-      email: "○○@kuhp.kyoto-u.ac.jp"
+      tel: "075-751-3111"  # 京大病院代表（直通は本人確認）
+      email: "要確認"
 
     effort_percent: 25
     tasks: "インフラ連関分析・シミュレーション技術開発"
@@ -290,9 +333,11 @@ co_investigators:
 # → 様式1-1 ⑩
 # ---------------------------------------------------------------------------
 admin_contact:
-  name: "○○ ○○"
+  # 古澤 優子: 医学部附属病院 医療情報企画部 / 情報学研究科（兼務）
+  #   事務補佐員として経理事務担当
+  name: "古澤 優子"
   affiliation: "京都大学 医学部附属病院"
-  department: "経理・調達課"
-  position: "○○"
-  tel: "075-○○○-○○○○"
-  email: "○○@kuhp.kyoto-u.ac.jp"
+  department: "医療情報企画部"
+  position: "事務補佐員"
+  tel: "075-366-7701"
+  email: "furusawa@kuhp.kyoto-u.ac.jp"

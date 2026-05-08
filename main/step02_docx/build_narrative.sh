@@ -120,24 +120,38 @@ run_mermaid() {
 }
 
 # rsvg-convert: $1=入力 .svg, $2=出力 .png (300dpi)
+# N16-01: mermaid 出力 SVG（fig2/fig3 等）は viewBox が ~800px と小さく、
+#         300dpi でラスタライズしても PNG が ~800px 幅にしかならず Word の
+#         PDF 化時に明確にピンボケする。mermaid 由来 SVG は
+#         aria-roledescription 属性で判別できるため、検出時のみ -z 4 で
+#         3000px 級まで拡大する。Office で保存された画像1〜3.svg は内部に
+#         高解像度 PNG を埋め込んでおり intrinsic width も 2700-3157px と
+#         十分大きいため、zoom なしのデフォルト経路で鮮明な PNG が得られる。
 run_rsvg_convert() {
     local svg="$1" png="$2"
     # rsvg-convert は出力拡張子で形式判定するため tmp も .png で終わらせる
     local tmp="${png%.png}.tmp.$$.png"
     # N13-02: 関数 return / ERR / 中断いずれの経路でも tmp を必ず削除
     trap "rm -f '$tmp'" RETURN
+
+    # mermaid 出力検出 → 低解像度回避ズームを適用
+    local zoom_args=()
+    if grep -q 'aria-roledescription' "$svg" 2>/dev/null; then
+        zoom_args=( -z 4 )
+    fi
+
     local ret=0
     if [[ "$MODE" == "docker" ]]; then
         docker compose -f docker/docker-compose.yml run --rm \
             -u "$(id -u):$(id -g)" python \
-            rsvg-convert -d 300 -p 300 "$svg" -o "$tmp" || ret=$?
+            rsvg-convert -d 300 -p 300 "${zoom_args[@]}" "$svg" -o "$tmp" || ret=$?
     else
         if ! command -v rsvg-convert &>/dev/null; then
             echo "ERROR: rsvg-convert がホストに見つかりません: $svg" >&2
             echo "  librsvg2-bin をインストールするか --docker での実行を試してください" >&2
             return 1
         fi
-        rsvg-convert -d 300 -p 300 "$svg" -o "$tmp" || ret=$?
+        rsvg-convert -d 300 -p 300 "${zoom_args[@]}" "$svg" -o "$tmp" || ret=$?
     fi
     if [[ $ret -ne 0 ]]; then
         return $ret

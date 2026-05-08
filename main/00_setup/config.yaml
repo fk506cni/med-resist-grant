@@ -16,8 +16,8 @@ project:
   theme_number: 23  # (23) 医療・医工学に関する基礎研究
 
   # 様式1-1 ②研究課題名（日）/ 様式6 I列
-  # ※ 学内審査資料準拠の正式タイトル
-  title_ja: "基盤インフラに対するサイバー攻撃が地域医療提供体制に及ぼす影響をシミュレーションする技術の開発"
+  # ※ 30 字以内（様式1-1 ②の指定）
+  title_ja: "インフラサイバー攻撃の地域医療影響シミュレーション技術開発"
 
   # 様式1-1 ②研究課題名（英）
   title_en: "Development of Simulation Technology for Assessing the Impact of Cyberattacks on Critical Infrastructure on Regional Healthcare Delivery Systems"
@@ -37,11 +37,11 @@ project:
 
   # 様式1-1 ⑤研究の概要（180字以内、一般向け平易な表現）
   summary: >-
-    2026年3月、経済安全保障推進法の改正案により医療分野が基盤インフラに追加された。
-    しかし、電力・通信等のインフラや病院へのサイバー攻撃が地域医療に及ぼす影響の
-    体系的な評価手法は確立されていない。本研究では、レセプト・DPC・救急搬送等の
-    医療ビッグデータとインフラ稼働情報を用いて、サイバー攻撃時の地域医療提供体制の
-    維持可能性を定量的に評価・予測するシミュレーション技術を開発する。
+    医療分野が基盤インフラに指定された。電力・通信等のインフラや病院への
+    サイバー攻撃が地域医療に及ぼす影響の体系的評価手法は未確立である。
+    本研究は、レセプト・DPC・救急搬送等の医療ビッグデータとインフラ稼働
+    情報を統合し、サイバー攻撃時の地域医療提供体制の維持可能性を定量評価・
+    予測するシミュレーション技術を開発する。
 
   # 様式1-1 ⑧タイプ / 様式6 G列
   # 選択肢: S / A / C / D(S相当) / D(A相当) / D(C相当)
@@ -55,6 +55,10 @@ project:
   # 様式1-1 ⑧重複応募の有無
   # 様式6 H列（委託事業と補助事業との重複の有無）
   duplicate_application: false
+
+  # 様式記載日（各様式・参考様式の「令和　年　月　日」欄に展開）
+  # ※ e-Rad 提出期限は 2026-05-20 だが、提出時点に余裕をもたせて 5/10 を記載日とする
+  submission_date: "2026-05-10"
 
 # ---------------------------------------------------------------------------
 # lead_institution: 代表研究機関情報
@@ -84,9 +88,10 @@ lead_institution:
   procurement_grade: "A"
 
   # 参考様式の署名者（委託契約の最終権限者）
+  # 京都大学の代表研究機関側承諾書では医学研究科長・医学部長が署名する
   authorized_signer:
-    name: "○○ ○○"       # 病院長 or 契約担当部署の長
-    title: "○○○○"
+    name: "波多野 悦朗"
+    title: "医学研究科長・医学部長"
 
 # ---------------------------------------------------------------------------
 # sub_institutions: 分担研究機関情報
@@ -179,15 +184,15 @@ budget:
       line_items:
         # Ⅰ．物品費 — 1. 設備備品費
         - category: equipment
-          name: "GPU計算サーバ（NVIDIA H100相当 GPU×4基搭載、○○社）"
-          quantity: "1式"
+          name: "GPU計算サーバ（NVIDIA H100相当 GPU×4基搭載、Dell Technologies PowerEdge XE シリーズ相当）"
+          quantity: "一式"
           amount: 15000
           institution: "京都大学"
           justification: "サイバー攻撃シナリオの大規模シミュレーションおよび医療ビッグデータの高速解析処理に使用"
 
         - category: equipment
-          name: "大容量ストレージシステム（100TB級、○○社）"
-          quantity: "1式"
+          name: "大容量ストレージシステム（100TB級、Dell Technologies PowerStore シリーズ相当）"
+          quantity: "一式"
           amount: 5000
           institution: "京都大学"
           justification: "レセプト・DPC・救急搬送等の大規模医療データおよびシミュレーション結果の保管に使用"
@@ -263,8 +268,8 @@ budget:
     - year: 2
       line_items:
         - category: equipment
-          name: "追加ストレージ・ネットワーク機器"
-          quantity: "1式"
+          name: "追加ストレージ・ネットワーク機器（Dell Technologies PowerSwitch / PowerStore 拡張モジュール相当）"
+          quantity: "一式"
           amount: 2000
           institution: "京都大学"
           justification: "増大する医療ビッグデータおよびシミュレーション結果データの保管・高速転送"
@@ -336,7 +341,7 @@ budget:
     - year: 3
       line_items:
         - category: equipment
-          name: "解析用ワークステーション"
+          name: "解析用ワークステーション（Dell Technologies Precision シリーズ相当）"
           quantity: "1台"
           amount: 1000
           institution: "京都大学"

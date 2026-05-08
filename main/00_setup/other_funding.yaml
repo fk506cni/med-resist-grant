@@ -27,20 +27,54 @@
 # → 様式3-1（r08youshiki1_5.docx Table 10）
 # ---------------------------------------------------------------------------
 pi_funding:
+  # 出典: refs/effort_fk.pdf（e-Rad エフォート一覧、研究者番号 60856384、2026年度）
   entries:
+    # 1. 文部科学省 若手研究（採択済、研究代表者）
     - status: "受入中"
-      program_name: "○○"
-      period: "○○〜○○"
-      agency: "○○"
-      project_title: "○○に関する研究"
-      role: "○○"
+      program_name: "若手研究"
+      period: "R6〜R8"
+      agency: "文部科学省"
+      project_title: "スマートフォンを利用した非接触型呼吸モニタリング手法の開発"
+      role: "代表"
+      budget: 1300       # R8 配分予定額（千円）
+      total_budget: 1300 # 課題期間総額（千円、※ 1,300千円は単年度ベース、3か年積算は要確認）
+      effort_percent: 10
+      difference: >-
+        本課題は呼吸モニタリングのデバイス開発に焦点を当てているのに対し、
+        本応募研究はサイバー攻撃時の地域医療提供体制のシミュレーション技術
+        開発を目的としており、対象・手法が異なる。
+      confidential: false
+
+    # 2. 厚生労働省 難治性疾患政策研究事業（採択済、研究分担者）
+    - status: "受入中"
+      program_name: "難治性疾患政策研究事業（24FC0401）"
+      period: "R6〜R8"
+      agency: "厚生労働省"
+      project_title: "指定難病患者データベース・小児慢性特定疾病児童等データベースの運用に資する研究"
+      role: "分担"
       budget: 0
       total_budget: 0
-      effort_percent: 0
+      effort_percent: 5
       difference: >-
-        ○○では○○を目的としているのに対し、本課題ではサイバー攻撃時の
-        地域医療提供体制のシミュレーション技術開発に焦点を当てており、
-        研究目的・方法が異なる。
+        本課題は難病・小慢DBの運用基盤整備が目的であり、本応募研究の
+        サイバー攻撃影響シミュレーション技術開発とは対象データ・目的・手法が
+        いずれも異なる。
+      confidential: false
+
+    # 3. AMED 循環器疾患・糖尿病等生活習慣病対策実用化研究（みなし計上、研究分担者）
+    - status: "受入中"
+      program_name: "循環器疾患・糖尿病等生活習慣病対策実用化研究事業"
+      period: "R6〜R8"
+      agency: "国立研究開発法人日本医療研究開発機構（AMED）"
+      project_title: "大規模言語モデルで構築する栄養指導記録構造化データベースを用いた糖尿病栄養指導エビデンス創出研究"
+      role: "分担"
+      budget: 0
+      total_budget: 0
+      effort_percent: 5
+      difference: >-
+        本課題は栄養指導記録の構造化データベース構築が目的であり、
+        本応募研究のインフラサイバー攻撃シミュレーション技術開発とは対象・
+        手法が異なる。
       confidential: false
 
 # ---------------------------------------------------------------------------
@@ -64,8 +98,8 @@ co_investigator_funding:
           助言を担当しており、研究内容が異なる。
         confidential: false
 
-  - researcher_name: "○○ ○○"
-    entries: []  # 要確認
+  - researcher_name: "森 由希子"
+    entries: []  # 要確認（共同研究者本人へ要照会）
 
   - researcher_name: "楠田 佳緒"
     entries:

@@ -16,9 +16,11 @@ Usage:
 import argparse
 import copy
 import math
+import re
 import shutil
 import sys
 import warnings
+from datetime import date as _date
 from pathlib import Path
 
 import yaml
@@ -373,6 +375,61 @@ def fill_2_1_inst(tbl, cfg):
 # Fill: 様式2-2  (Tables 5–9: 12r×5c each)
 # ============================================================================
 
+# N16-02: 様式2-2 のセル内テキストはデフォルトの明朝＋10pt だと 5 列構成
+# （内訳/数量/金額/機関/根拠）の各セルが狭く、長い品目名や根拠説明が極端に
+# 折り返される。共同研究者指摘 #3 に従い、プロポーショナルゴシック・9pt に
+# 揃えることで可読性を確保する。reference.docx ではなく run 単位で rPr を
+# 上書きするため、明朝指定の Normal スタイルから影響を受けない。
+#
+# N16-03: ＭＳ ゴシック（等幅）だと半角数字も全幅扱いとなり、金額列の
+# 「15,000」(6 文字) が約 1080twips に膨らんで列幅 1078twips を超え、
+# Word が「15,0/00」のようにセル内で折り返す。プロポーショナル変種
+# ＭＳ Ｐゴシックは半角数字を約 0.5em 幅で描画するため、「15,000」も
+# 約 540twips に収まり折り返さない。
+_GOTHIC_FONT = "ＭＳ Ｐゴシック"
+
+
+def _apply_gothic_to_cell(cell, sz_half_pt=18):
+    """Force all runs in a cell to MS Gothic (sz_half_pt half-points = 9pt).
+
+    N16-06: テンプレート（r08youshiki1_5.docx）の様式2-2 金額セルの段落には
+    `<w:ind w:right="732"/>` が設定されており、列幅 1276twips のうち 732twips
+    が右インデントで予約されてしまい、有効幅 346twips しか残らない。これでは
+    「1,000」「2,000」が「1,00 / 0」のように途中改行される。フォント設定と
+    一緒に右インデントもリセットすることで本来の列幅を活用させる。
+    """
+    for p in cell.paragraphs:
+        # Remove right indent on paragraph (preserve other ind attrs)
+        pPr = p._element.find(qn("w:pPr"))
+        if pPr is not None:
+            ind = pPr.find(qn("w:ind"))
+            if ind is not None and ind.get(qn("w:right")) is not None:
+                ind.set(qn("w:right"), "0")
+        for r in p.runs:
+            rPr = r._element.find(qn("w:rPr"))
+            if rPr is None:
+                rPr = OxmlElement("w:rPr")
+                r._element.insert(0, rPr)
+            for old in rPr.findall(qn("w:rFonts")):
+                rPr.remove(old)
+            for old in rPr.findall(qn("w:sz")):
+                rPr.remove(old)
+            for old in rPr.findall(qn("w:szCs")):
+                rPr.remove(old)
+            rFonts = OxmlElement("w:rFonts")
+            rFonts.set(qn("w:ascii"), _GOTHIC_FONT)
+            rFonts.set(qn("w:eastAsia"), _GOTHIC_FONT)
+            rFonts.set(qn("w:hAnsi"), _GOTHIC_FONT)
+            rFonts.set(qn("w:cs"), _GOTHIC_FONT)
+            rPr.insert(0, rFonts)
+            sz = OxmlElement("w:sz")
+            sz.set(qn("w:val"), str(sz_half_pt))
+            rPr.append(sz)
+            szCs = OxmlElement("w:szCs")
+            szCs.set(qn("w:val"), str(sz_half_pt))
+            rPr.append(szCs)
+
+
 def _fill_budget_block(tbl, row, sections):
     """Write aligned multi-line content into a budget-detail row.
 
@@ -453,6 +510,11 @@ def fill_2_2(tables, cfg):
         set_cell(tbl.cell(9, 2), _amt(direct))
         set_cell(tbl.cell(10, 2), _amt(indirect))
         set_cell(tbl.cell(11, 2), _amt(direct + indirect))
+
+        # N16-02: ゴシック化＋9pt で可読性を確保（共同研究者指摘 #3）
+        for row in tbl.rows:
+            for cell in row.cells:
+                _apply_gothic_to_cell(cell)
 
     print("  ✓ 様式2-2")
 
@@ -698,9 +760,12 @@ def fill_consent_forms(doc, cfg, res):
         f"{co.get('affiliation', '')}\u3000{co.get('name_ja', '')}".strip()
         for co in co_list
     )
-    lead_signer_display = "\u3000".join(
-        x for x in (inst_name, signer_title, signer_name) if x
-    )
+    # N16-07: signer block \u306e placeholder \u69cb\u9020\u306f 3 \u6bb5\uff08\u6a5f\u95a2\u540d / \u8077\u540d / \u6c0f\u540d\uff09\u3002
+    # \u25cb\u25cb\u5927\u5b66 / \u25b3\u25b3\u5b66\u90e8\u9577 / \u25a1\u25a1 \u25a1\u25a1 \u3092\u305d\u308c\u305e\u308c\u5225\u6bb5\u843d\u3067\u500b\u5225\u7f6e\u63db\u3059\u308b\u3002
+    # 1 \u6bb5\u843d\u306b\u8a70\u3081\u308b\u3068\u30bb\u30eb\u5e45\u3067\u6539\u884c\u3055\u308c\u3066\u53ef\u8aad\u6027\u304c\u52a3\u5316\u3059\u308b\u3002
+    lead_inst_display = inst_name
+    lead_title_display = signer_title
+    lead_signer_display = signer_name
 
     def _set_para_text(para, new_text):
         """Replace paragraph text while preserving the first run's rPr."""
@@ -722,24 +787,29 @@ def fill_consent_forms(doc, cfg, res):
         para._element.append(new_r)
 
     def _patch_runs(para):
-        """Run-level substitutions (intro 元号年 / 実施期間)."""
-        for run in para.runs:
-            rt = run.text
-            new_rt = rt
-            new_rt = new_rt.replace(
-                "令和\u3000年度安全保障技術研究推進制度",
-                "令和８年度安全保障技術研究推進制度",
-            )
-            new_rt = new_rt.replace(
-                "令和\u3000年度～令和\u3000年度",
-                f"令和８年度～令和{period_end_year}年度",
-            )
-            new_rt = new_rt.replace(
-                "令和\u3000年度〜令和\u3000年度",
-                f"令和８年度〜令和{period_end_year}年度",
-            )
-            if new_rt != rt:
-                run.text = new_rt
+        """Paragraph-level substitutions (intro 元号年 / 実施期間).
+
+        N16-08: テンプレートは「令和」「\u3000年度」「安全保障\u2026」を
+        複数 w:r に分割するため run 単位の str.replace では一致しない。
+        paragraph 全体のテキストで判定・置換し、差分があれば
+        _set_para_text で 1 ラン化して書き戻す。
+        """
+        text = para.text
+        new = text
+        new = new.replace(
+            "令和\u3000年度安全保障技術研究推進制度",
+            "令和８年度安全保障技術研究推進制度",
+        )
+        new = new.replace(
+            "令和\u3000年度～令和\u3000年度",
+            f"令和８年度～令和{period_end_year}年度",
+        )
+        new = new.replace(
+            "令和\u3000年度〜令和\u3000年度",
+            f"令和８年度〜令和{period_end_year}年度",
+        )
+        if new != text:
+            _set_para_text(para, new)
 
     consent_type = None  # "lead" | "partner" | "hojokin" | None
     in_consent = False
@@ -772,6 +842,17 @@ def fill_consent_forms(doc, cfg, res):
             continue
 
         # --- Paragraph-level fills（lead / partner で挙動を分岐） ---
+        # N16-07: signer block 3 段（○○大学 / △△学部長 / □□ □□）を個別置換
+        if stripped.startswith("○○") and consent_type == "lead":
+            if lead_inst_display:
+                _set_para_text(para, lead_inst_display)
+                fills += 1
+                continue
+        if stripped.startswith("△△") and consent_type == "lead":
+            if lead_title_display:
+                _set_para_text(para, lead_title_display)
+                fills += 1
+                continue
         if stripped.startswith("□□") and consent_type == "lead":
             if lead_signer_display:
                 _set_para_text(para, lead_signer_display)
@@ -883,6 +964,33 @@ def delete_sections(doc, tables, cfg, res):
                 if children[i].tag != qn("w:sectPr"):
                     remove.add(i)
 
+    # --- 2.5. 参考様式 委託費（分担研究機関）: delete if no sub-institutions ---
+    # N16-05: sub_institutions=[] の場合、分担研究機関版承諾書は記入欄が
+    # 空のまま残り提出書類として誤解を招く（共同研究者指摘）。代表機関版は
+    # 残し、分担機関版のみ削除する。区間検出は補助金版と同種の境界条件で限定。
+    if not cfg.get("sub_institutions", []):
+        hi_p = -1
+        for i in range(len(children)):
+            txt = _text(children[i])
+            if "（参考様式" in txt and "分担研究機関" in txt:
+                hi_p = i
+                break
+        if hi_p >= 0:
+            end = len(children)
+            for i in range(hi_p + 1, len(children)):
+                if children[i].tag == qn("w:sectPr"):
+                    end = i
+                    break
+                txt = _text(children[i])
+                if "（参考様式" in txt or "チェックリスト" in txt:
+                    end = i
+                    break
+            if ci >= 0 and ci > hi_p and ci < end:
+                end = ci
+            for i in range(hi_p, end):
+                if children[i].tag != qn("w:sectPr"):
+                    remove.add(i)
+
     # --- 3. 様式5: delete if university/public institution ---
     if inst_type in ("大学等", "公的研究機関"):
         si = _find("（様式５）")
@@ -943,6 +1051,237 @@ def delete_sections(doc, tables, cfg, res):
 # ============================================================================
 # Main
 # ============================================================================
+
+# ============================================================================
+# Application date placeholder fill (様式1-1 / 参考様式)
+# ============================================================================
+
+def _format_reiwa(d):
+    """Convert date(2026,5,10) → '令和8年5月10日'."""
+    reiwa_year = d.year - 2018  # 令和元年 = 2019
+    return f"令和{reiwa_year}年{d.month}月{d.day}日"
+
+
+def _parse_submission_date(value):
+    """Accept ISO string ('2026-05-10') or datetime.date and return date."""
+    if isinstance(value, _date):
+        return value
+    if isinstance(value, str):
+        y, m, d = value.split("-")
+        return _date(int(y), int(m), int(d))
+    raise ValueError(f"submission_date must be ISO string or date, got {value!r}")
+
+
+_DATE_PLACEHOLDER_RE = re.compile(r"令和[　\s]*年[　\s]*月[　\s]*日")
+
+
+def fill_application_dates(doc, cfg):
+    """Replace '令和　年　月　日' placeholders with submission_date.
+
+    Targets standalone date paragraphs in 様式1-1 直下 and 参考様式
+    （応募・実施承諾書）末尾。本文中の「令和　年度〜令和　年度」のような
+    元号年プレースホルダは対象外（fill_consent_forms 側で処理済）。
+    """
+    proj = cfg.get("project", {})
+    raw = proj.get("submission_date")
+    if not raw:
+        return
+    try:
+        d = _parse_submission_date(raw)
+    except ValueError as e:
+        warnings.warn(f"submission_date parse failed: {e}")
+        return
+    formatted = _format_reiwa(d)
+
+    n = 0
+    for para in doc.paragraphs:
+        text = para.text
+        if not _DATE_PLACEHOLDER_RE.search(text):
+            continue
+        new_text = _DATE_PLACEHOLDER_RE.sub(formatted, text)
+        if new_text == text:
+            continue
+        # Preserve first run's rPr to retain font/size formatting
+        rpr = None
+        for r in para.runs:
+            rpr_el = r._element.find(qn("w:rPr"))
+            if rpr_el is not None:
+                rpr = copy.deepcopy(rpr_el)
+                break
+        for r_el in list(para._element.findall(qn("w:r"))):
+            para._element.remove(r_el)
+        new_r = OxmlElement("w:r")
+        if rpr is not None:
+            new_r.append(rpr)
+        new_t = OxmlElement("w:t")
+        new_t.text = new_text
+        new_t.set(qn("xml:space"), "preserve")
+        new_r.append(new_t)
+        para._element.append(new_r)
+        n += 1
+    print(f"  ✓ 申請日 placeholder fill ({n} 段落, {formatted})")
+
+
+# ============================================================================
+# Title / 研究者氏名 placeholder fill (様式1-2 / 1-3 / 3-1 / 3-2)
+# ============================================================================
+
+def _replace_para_text(para, new_text):
+    """Replace paragraph text while preserving the first run's rPr."""
+    rpr = None
+    for r in para.runs:
+        rpr_el = r._element.find(qn("w:rPr"))
+        if rpr_el is not None:
+            rpr = copy.deepcopy(rpr_el)
+            break
+    for r_el in list(para._element.findall(qn("w:r"))):
+        para._element.remove(r_el)
+    new_r = OxmlElement("w:r")
+    if rpr is not None:
+        new_r.append(rpr)
+    new_t = OxmlElement("w:t")
+    new_t.text = new_text
+    new_t.set(qn("xml:space"), "preserve")
+    new_r.append(new_t)
+    para._element.append(new_r)
+
+
+def fill_title_placeholders(doc, cfg):
+    """Fill standalone '研究課題名：' placeholder paragraphs with project title.
+
+    fill_consent_forms 側は参考様式区間内のみを対象とするため、様式1-2 /
+    様式1-3 直下の同じプレースホルダ段落は未処理のまま残る。本関数で全文書を
+    走査し、空欄状態の研究課題名行を全て課題名で埋める。既に内容が入っている
+    段落（例: 参考様式で fill 済み）は idempotent に skip する。
+    """
+    proj = cfg.get("project", {})
+    title_ja = proj.get("title_ja", "")
+    if not title_ja:
+        return
+    target = f"研究課題名：　{title_ja}"
+    n = 0
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if not text.startswith("研究課題名："):
+            continue
+        rest = text[len("研究課題名："):].strip()
+        # idempotent skip: 既に課題名が入っている段落はそのまま
+        if title_ja in rest:
+            continue
+        # 空欄プレースホルダ（全角空白のみ等）を fill 対象とする
+        _replace_para_text(para, target)
+        n += 1
+    print(f"  ✓ 研究課題名 placeholder fill ({n} 段落)")
+
+
+def fill_form3_researcher_names(doc, cfg, res):
+    """Fill '研究代表者：' / '研究分担者：' placeholders in 様式3-1 / 3-2."""
+    pi = res.get("pi", {})
+    pi_name = pi.get("name_ja", "")
+    co_list = res.get("co_investigators", []) or []
+    co_names = "、".join(co.get("name_ja", "") for co in co_list if co.get("name_ja"))
+
+    n = 0
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if text.startswith("研究代表者：") and pi_name:
+            rest = text[len("研究代表者："):].strip()
+            if pi_name in rest:
+                continue
+            _replace_para_text(para, f"研究代表者：　{pi_name}")
+            n += 1
+        elif text.startswith("研究分担者：") and co_names:
+            rest = text[len("研究分担者："):].strip()
+            if all(co.get("name_ja", "") in rest for co in co_list if co.get("name_ja")):
+                continue
+            _replace_para_text(para, f"研究分担者：　{co_names}")
+            n += 1
+    print(f"  ✓ 様式3 研究者氏名 placeholder fill ({n} 段落)")
+
+
+# ============================================================================
+# Trailing empty paragraph cleanup (blank page removal)
+# ============================================================================
+
+def remove_trailing_empty_before_page_breaks(doc):
+    """Remove runs of empty paragraphs that immediately precede a form heading
+    with pageBreakBefore.
+
+    N16-04: テンプレート（r08youshiki1_5.docx）は様式間に大量の空段落
+    （様式2-1 末尾に 16 段落、2-2 末尾に 14 段落 等）を持ち、insert_form_page_breaks
+    が次の様式ヘッダに pageBreakBefore を入れる際、この trailing 空段落が
+    そのまま新ページに繰り越されて blank page が発生する（共同研究者指摘）。
+
+    各様式ヘッダの直前を逆走し、空 (text のみが空白) かつ table を含まない
+    段落を順次削除する。最初に非空段落・テーブル・別の様式ヘッダに到達した
+    時点で停止する。
+    """
+    body = doc.element.body
+    children = list(body)
+
+    def _text(el):
+        if el.tag != qn("w:p"):
+            return ""
+        return "".join(t.text or "" for t in el.findall(f".//{qn('w:t')}")).strip()
+
+    def _has_pbb(el):
+        if el.tag != qn("w:p"):
+            return False
+        pPr = el.find(qn("w:pPr"))
+        if pPr is None:
+            return False
+        return pPr.find(qn("w:pageBreakBefore")) is not None
+
+    removed = 0
+    for el in list(children):
+        if not _has_pbb(el):
+            continue
+        idx = list(body).index(el)
+        # walk backwards, removing empty paragraphs
+        j = idx - 1
+        while j >= 0:
+            prev = list(body)[j]
+            if prev.tag != qn("w:p"):
+                break
+            if _text(prev):
+                break
+            # safety: don't cross another form heading
+            body.remove(prev)
+            removed += 1
+            j -= 1
+    print(f"  ✓ trailing 空段落削除 ({removed} 段落)")
+
+
+def insert_form_page_breaks(doc):
+    """Add w:pageBreakBefore to each 様式 / 参考様式 header paragraph.
+
+    Skips the very first header (様式１－１) since it's the document front
+    and an extra page break would produce a blank first page. Idempotent:
+    if pPr already has pageBreakBefore, leaves it alone.
+
+    Pattern matches:
+      - "（様式1-1）" / "（様式１－２）" / "（様式２－２）" etc.
+      - "（参考様式 委託費（代表研究機関））" 等
+    Full-width paren "（" is required (the template uses full-width).
+    """
+    import re as _re
+    pattern = _re.compile(r"^（\s*(様式|参考様式)")
+    matched_n = 0
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if not pattern.match(text):
+            continue
+        matched_n += 1
+        if matched_n == 1:
+            continue  # 先頭 様式1-1 は skip
+        pPr = para._p.find(qn("w:pPr"))
+        if pPr is None:
+            pPr = OxmlElement("w:pPr")
+            para._p.insert(0, pPr)
+        if pPr.find(qn("w:pageBreakBefore")) is None:
+            pPr.append(OxmlElement("w:pageBreakBefore"))
+    print(f"  pageBreakBefore を {max(0, matched_n - 1)} 様式ヘッダに注入")
+
 
 def main():
     ap = argparse.ArgumentParser(
@@ -1034,9 +1373,30 @@ def main():
 
     fill_consent_forms(doc, cfg, res)
 
+    # ---- Title / 研究者氏名 placeholder fill (様式1-2 / 1-3 / 3-1 / 3-2) ----
+    fill_title_placeholders(doc, cfg)
+    fill_form3_researcher_names(doc, cfg, res)
+
+    # ---- Application date fill (様式1-1 / 参考様式) ----
+    fill_application_dates(doc, cfg)
+
     # ---- Delete unnecessary sections ----
     print("\nCleaning up...")
     delete_sections(doc, tables, cfg, res)
+
+    # ---- Enforce page break between forms ----
+    # N15-03: テンプレート r08youshiki1_5.docx は 様式間に明示的な
+    # pageBreakBefore を持たないため、ナラティブ挿入後のページ流れが
+    # 様式途中から次様式に繋がる。各様式ヘッダ（（様式X－Y） / （参考様式...））
+    # に pageBreakBefore を注入することで常に新ページから開始させる。
+    # 先頭の（様式１－１）は文頭なのでスキップ。
+    insert_form_page_breaks(doc)
+
+    # ---- Remove trailing empty paragraphs that cause blank pages ----
+    # N16-04: pageBreakBefore 直前の空段落は新ページに繰り越されて blank page
+    # を生む（共同研究者指摘）。各 pageBreakBefore 段落の直前を逆走し空段落を
+    # 削除する。insert_form_page_breaks の後に必ず実行すること。
+    remove_trailing_empty_before_page_breaks(doc)
 
     # ---- Save ----
     doc.save(str(out_path))
