@@ -1,0 +1,23 @@
+%%{init: {'theme':'base','themeVariables':{'fontSize':'12px'},'gantt':{'htmlLabels':false,'barHeight':18,'fontSize':11,'sectionFontSize':12,'leftPadding':100}}}%%
+gantt
+    title 研究実施計画（R8-R10、実施項目×年度）
+    dateFormat YYYY-MM
+    axisFormat %Y/%m
+
+    section 項目1 医療需給モデル
+    データ取得・前処理・基礎モデル設計  :a1, 2026-12, 10M
+    モデル構築・パラメータ推定          :a2, after a1, 9M
+    モデル検証・精緻化                  :a3, after a2, 9M
+
+    section 項目2 インフラ連関
+    文献調査・基礎設計                  :b1, 2026-12, 4M
+    ネットワークモデル構築・定量化      :b2, after b1, 12M
+    検証・感度分析                      :b3, after b2, 12M
+
+    section 項目3 シナリオ統合
+    シナリオ分類体系の設計              :c1, 2026-12, 6M
+    統合シミュレーション開発・試行      :c2, after c1, 12M
+    本格実験・実データ検証・成果取りまとめ :c3, after c2, 10M
+
+    section 項目4 推進
+    月次会議・進捗管理・成果発表        :d1, 2026-12, 28M

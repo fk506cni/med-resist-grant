@@ -122,7 +122,9 @@ pi:
   patents: []
 
   # --- researchmap ---
-  researchmap_id: "○○○○○○○"
+  # ※ 様式出力には未使用（fill_forms.py / fill_excel.py のいずれも参照しない）。
+  #   将来の参照に備えて空文字で保持。実値が必要になったら本人確認後に置換。
+  researchmap_id: ""
 
   # --- 様式1-1 ⑨連絡先 ---
   contact:
@@ -144,7 +146,11 @@ pi:
 # ---------------------------------------------------------------------------
 co_investigators:
   # --- 黒田 知宏 教授（医療情報企画部 教授 / 京大病院 CIO） ---
-  # 出典: https://kuroda.kuhp.kyoto-u.ac.jp/ (個人公式サイト)
+  # 出典:
+  #   - https://kuroda.kuhp.kyoto-u.ac.jp/ (個人公式サイト)
+  #   - https://kdb.iimc.kyoto-u.ac.jp/profile/ja.c70c2b28e4d0561d.html (京大教育研究活動DB)
+  #   - https://researchmap.jp/tkuroda (researchmap、ID: 5000031156)
+  #   - ORCID: 0000-0003-1472-7203、Researcher ID: F-7041-2010
   - name_ja: "黒田 知宏"
     name_en: "Tomohiro KURODA"
     furigana: "くろだ ともひろ"
@@ -153,7 +159,8 @@ co_investigators:
     birth_date: "1971年4月19日"
     age: 54  # 2026年5月応募時点
 
-    researcher_id: "要確認"  # e-Rad 研究者番号 — 本人に確認のこと
+    # 出典: 京大 KDB (KAKEN/e-Rad 番号)。提出前に本人にも最終確認。
+    researcher_id: "10304156"
 
     affiliation: "京都大学"
     department: "医学部附属病院 医療情報企画部"
@@ -165,26 +172,44 @@ co_investigators:
       graduation_year: "1998年3月修了"
       degree: "博士（工学）"
 
-    specialty: "医療情報学、病院情報システム、手話言語工学、ウェアラブルコンピューティング、遠隔医療、支援技術"
+    specialty: "医療情報学、病院情報システム、ウェアラブル・ユビキタスコンピューティング、遠隔医療、医用バーチャルリアリティ、シミュレーション医学教育"
 
     career_history:
       - year_month: "1994年3月"
         description: "京都大学工学部情報工学科 卒業"
       - year_month: "1998年4月"
-        description: "奈良先端科学技術大学院大学 情報科学研究科 助教授（後に准教授）"
+        description: "奈良先端科学技術大学院大学 情報科学研究科 助手（後に助教授・准教授）"
       - year_month: "2013年8月"
         description: "京都大学医学部附属病院 医療情報企画部 教授／京大病院 CIO（現職）"
+      - year_month: "2023年4月"
+        description: "京都大学大学院医学研究科附属 医療DX教育研究センター長（兼任、現職）"
 
-    funding_history:
-      - program: "要確認"
-        title: "要確認"
-        role: "代表"
-        period: "要確認"
-        amount: "要確認"
+    # ※ 黒田先生の他制度応募・受入状況は本人未照会のため funding_history は空配列。
+    #   様式4-2 の該当欄も空欄として出力される。本人確認後、主要 1〜3 件を追記する。
+    funding_history: []
 
-    awards: []
+    # 出典: researchmap awards より、本研究（医療情報学・病院情報システム）関連性の
+    # 高いものを抜粋。提出前に本人へファクトチェック依頼。
+    awards:
+      - year_month: "2023年7月"
+        name: "Best Paper Award Second Place, MEDINFO 2023"
+      - year_month: "2020年11月"
+        name: "学術論文賞, 日本医療情報学会"
+      - year_month: "2019年11月"
+        name: "最優秀学術論文賞, 日本医療情報学会"
 
+    # 出典: researchmap publications より、本研究（医療情報基盤・病院情報システム）
+    # 関連性の高いものを抜粋。タイトル・著者・年は researchmap 記載に従う仮入力で、
+    # 提出前に本人へファクトチェック依頼必須。
     publications:
+      - authors: "Kuroda T, Sado K, Suda K, et al."
+        title: "CocktailAI: Discharge Summary Generator Using Template Document and Retrieval-Augmented Generation"
+        journal: "Journal of Medical Internet Research"
+        year: 2025
+      - authors: "Mori Y, Kuroda T"
+        title: "Health Information Exchange Usage in Japan: Content Analysis of Audit Logs"
+        journal: "JMIR Medical Informatics"
+        year: 2025
       - authors: "Fukuyama K, Mori Y, Ueshima H, Ito S, Tanabe M, Kuroda T"
         title: "Medical resource usage for COVID-19 evaluated using the National Database of Health Insurance Claims and Specific Health Checkups of Japan"
         journal: "PLOS ONE"
@@ -196,12 +221,16 @@ co_investigators:
 
     patents: []
 
-    researchmap_id: "要確認"
+    # ※ researchmap 公開 ID: tkuroda（https://researchmap.jp/tkuroda）。
+    #   様式出力には未使用のため空文字保持。
+    researchmap_id: ""
 
     contact:
       postal: "〒606-8507 京都府京都市左京区聖護院川原町54 京都大学医学部附属病院 医療情報企画部"
       tel: "075-751-3111"  # 京大病院代表（直通は本人確認）
-      email: "要確認"
+      # ※ e-Rad 通知メールは代表者（福山）に一旦集約し、内部で転送する短期運用。
+      #   本人個別アドレスが確定したら本欄を上書きする。
+      email: "fkeita@kuhp.kyoto-u.ac.jp"
 
     effort_percent: 10
     tasks: "研究設計、医療情報システムに関する助言"
@@ -275,12 +304,15 @@ co_investigators:
 
     patents: []
 
-    researchmap_id: "要確認"
+    # ※ researchmap 公開アカウントは確認できず空文字保持。
+    researchmap_id: ""
 
     contact:
       postal: "〒606-8507 京都府京都市左京区聖護院川原町54 京都大学 医療DX教育研究センター"
       tel: "075-751-3111"  # 京大病院代表（直通は本人確認）
-      email: "要確認"
+      # ※ e-Rad 通知メールは代表者（福山）に一旦集約し、内部で転送する短期運用。
+      #   本人個別アドレスが確定したら本欄を上書きする。
+      email: "fkeita@kuhp.kyoto-u.ac.jp"
 
     effort_percent: 15
     tasks: "医療ビッグデータ解析"
@@ -380,16 +412,19 @@ co_investigators:
     # 出典: refs/研究業績目録_楠田佳緒.pdf 【特許】
     patents: []  # なし
 
-    researchmap_id: "要確認"
+    # ※ researchmap 公開アカウントは確認できず空文字保持。
+    researchmap_id: ""
 
     contact:
       postal: "〒606-8507 京都府京都市左京区聖護院川原町54 京都大学 医療DX教育研究センター"
       tel: "075-751-3111"  # 京大病院代表（直通は本人確認）
-      email: "要確認"
+      # ※ e-Rad 通知メールは代表者（福山）に一旦集約し、内部で転送する短期運用。
+      #   本人個別アドレスが確定したら本欄を上書きする。
+      email: "fkeita@kuhp.kyoto-u.ac.jp"
 
     # 本研究へのエフォート（refs/effort_kusuda.pdf の現状値: 採択45% + 応募中(本研究) 5% で
     # 申請されていたが、本プロジェクトでは 15% を確保する方針。本人側で e-Rad の
-    # 修正申請が必要）
+    # 修正申請を 2026-05-12 までに完了させる）
     effort_percent: 15
     tasks: "医療機関内ネットワーク・医療機器IoTの相互運用性分析、インフラ連関影響モデル開発、シミュレーション技術開発"
 
@@ -404,5 +439,7 @@ admin_contact:
   affiliation: "京都大学 医学部附属病院"
   department: "医療情報企画部"
   position: "事務補佐員"
+  # 様式1-1 ⑩ 連絡先「〒...」欄に展開される。M17-01 対応。
+  postal: "〒606-8507 京都府京都市左京区聖護院川原町54 京都大学医学部附属病院 医療情報企画部"
   tel: "075-366-7701"
   email: "furusawa@kuhp.kyoto-u.ac.jp"

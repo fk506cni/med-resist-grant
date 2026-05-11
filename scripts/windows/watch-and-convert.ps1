@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Watches the script's folder for new .docx files and auto-converts them to PDF using Microsoft Word.
 
@@ -265,26 +265,46 @@ Write-Log "Watching for .docx files... Press Ctrl+C to stop." 'INFO'
 Write-Host ''
 
 # Helper: ensure directory exists and move file there (with collision handling)
+#
+# Returns:
+#   - string (new file name) on success
+#   - $null when the source is already gone (external sync / concurrent
+#     archive, etc.) or when Move-Item fails for any other reason
+#
+# 異常終了させない方針: ソース不在や Move-Item の IO 失敗は WARN ログに
+# 残して $null を返し、呼出元が次のファイルへ処理を継続できるようにする。
+# 以前は Move-Item 例外が $ErrorActionPreference='Stop' と合流して
+# foreach ループ全体を崩し、watcher ごと停止していた（2026-04-18 17:30
+# に youshiki1_5_filled.docx で再現）。
 function Move-ToFolder {
     param(
         [string]$FilePath,
         [string]$DestDir,
         [string]$Label
     )
-    if (-not (Test-Path $DestDir)) {
-        New-Item -ItemType Directory -Path $DestDir -Force | Out-Null
-        Write-Log "Created folder: $Label/" 'INFO'
+    if (-not (Test-Path $FilePath)) {
+        Write-Log "Source already gone (external move/delete?): $(Split-Path $FilePath -Leaf)" 'WARN'
+        return $null
     }
-    $fileName = Split-Path $FilePath -Leaf
-    $destPath = Join-Path $DestDir $fileName
-    if (Test-Path $destPath) {
-        $baseName  = [System.IO.Path]::GetFileNameWithoutExtension($fileName)
-        $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-        $newName   = "${baseName}_${timestamp}.docx"
-        $destPath  = Join-Path $DestDir $newName
+    try {
+        if (-not (Test-Path $DestDir)) {
+            New-Item -ItemType Directory -Path $DestDir -Force | Out-Null
+            Write-Log "Created folder: $Label/" 'INFO'
+        }
+        $fileName = Split-Path $FilePath -Leaf
+        $destPath = Join-Path $DestDir $fileName
+        if (Test-Path $destPath) {
+            $baseName  = [System.IO.Path]::GetFileNameWithoutExtension($fileName)
+            $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+            $newName   = "${baseName}_${timestamp}.docx"
+            $destPath  = Join-Path $DestDir $newName
+        }
+        Move-Item -Path $FilePath -Destination $destPath -Force
+        return (Split-Path $destPath -Leaf)
+    } catch {
+        Write-Log "Move-ToFolder failed ($Label): $($_.Exception.Message)" 'WARN'
+        return $null
     }
-    Move-Item -Path $FilePath -Destination $destPath -Force
-    return (Split-Path $destPath -Leaf)
 }
 
 # --- Stateless polling loop ---
@@ -292,6 +312,11 @@ function Move-ToFolder {
 #   - Locked files  -> skip (will be retried next cycle automatically)
 #   - Convert OK    -> move to processed/
 #   - Convert FAIL  -> move to error/
+#
+# 異常終了させない方針: 各ファイルの処理を try/catch で包み、1 ファイル分の
+# 例外が while ループ全体を停止させないようにする。ループ外の try/finally は
+# Ctrl+C や watcher プロセス自体の強制終了の際に "Watcher stopped." を
+# 出すためのもので、ファイル個別エラーではトリガされない。
 try {
     while ($true) {
         $currentFiles = Get-ChildItem -Path $WatchDir -Filter '*.docx' -File -ErrorAction SilentlyContinue
@@ -302,31 +327,51 @@ try {
                 continue
             }
 
-            $filePath = $file.FullName
+            try {
+                $filePath = $file.FullName
 
-            # Check file lock (single attempt -- no blocking wait)
-            if (-not (Test-FileReady -Path $filePath)) {
-                Write-Log "Locked (sync in progress?): $($file.Name) -- will retry next cycle" 'WARN'
-                continue
+                # Check file lock (single attempt -- no blocking wait)
+                if (-not (Test-FileReady -Path $filePath)) {
+                    Write-Log "Locked (sync in progress?): $($file.Name) -- will retry next cycle" 'WARN'
+                    continue
+                }
+
+                # File is ready -- process it
+                Write-Host ''
+                Write-Host '--------------------------------------------------------' -ForegroundColor DarkCyan
+                Write-Log "Processing: $($file.Name)" 'INFO'
+
+                $pdfResult = Convert-DocxToPdf -DocxPath $filePath -OutputDir $ProductsDir
+
+                if ($pdfResult) {
+                    $movedName = Move-ToFolder -FilePath $filePath -DestDir $ProcessedDir -Label 'processed'
+                    if ($movedName) {
+                        Write-Log "Moved docx to: processed/$movedName" 'OK'
+                    } else {
+                        # PDF 変換は成功したが docx の archive 移動で失敗／既に消失。
+                        # watcher を止めず次のファイルへ進める。
+                        Write-Log "PDF 変換成功・docx は既に移動済み／移動失敗（無害）" 'WARN'
+                    }
+                } else {
+                    $movedName = Move-ToFolder -FilePath $filePath -DestDir $ErrorDir -Label 'error'
+                    if ($movedName) {
+                        Write-Log "Moved failed docx to: error/$movedName" 'ERROR'
+                    } else {
+                        Write-Log "失敗した docx の error/ への移動にも失敗（source 消失等）" 'ERROR'
+                    }
+                }
+
+                Write-Host '--------------------------------------------------------' -ForegroundColor DarkCyan
+                Write-Host ''
+            } catch {
+                # 1 ファイル単位の想定外例外を捕捉し、watcher 本体は継続させる。
+                # VBScript 変換・ファイル IO・Google Drive 同期などで断続的に
+                # 発生する一過性の失敗を全ファイル処理の停止に伝搬させないため。
+                Write-Log "Unhandled error on $($file.Name): $($_.Exception.Message)" 'ERROR'
+                Write-Log "[DEBUG] $($_.ScriptStackTrace)" 'ERROR'
+                Write-Host '--------------------------------------------------------' -ForegroundColor DarkCyan
+                Write-Host ''
             }
-
-            # File is ready -- process it
-            Write-Host ''
-            Write-Host '--------------------------------------------------------' -ForegroundColor DarkCyan
-            Write-Log "Processing: $($file.Name)" 'INFO'
-
-            $pdfResult = Convert-DocxToPdf -DocxPath $filePath -OutputDir $ProductsDir
-
-            if ($pdfResult) {
-                $movedName = Move-ToFolder -FilePath $filePath -DestDir $ProcessedDir -Label 'processed'
-                Write-Log "Moved docx to: processed/$movedName" 'OK'
-            } else {
-                $movedName = Move-ToFolder -FilePath $filePath -DestDir $ErrorDir -Label 'error'
-                Write-Log "Moved failed docx to: error/$movedName" 'ERROR'
-            }
-
-            Write-Host '--------------------------------------------------------' -ForegroundColor DarkCyan
-            Write-Host ''
         }
 
         Start-Sleep -Seconds $PollIntervalSec

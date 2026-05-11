@@ -177,6 +177,19 @@ phase_push() {
 
     rclone mkdir "$GDRIVE_DEST" 2>/dev/null || true
 
+    # N15-01: 前回 roundtrip の PDF が products/ に残ったままだと、
+    #   (a) Phase 4 の polling が「旧 PDF + 新 PDF」で count を誤判定し
+    #       Windows 変換完了前に premature break する
+    #   (b) Windows 側に旧 PDF が visible のまま残り誤認識の原因になる
+    # 以前は Phase 4 末尾で「download 後に __archives へ move」していたが、
+    # それでは Windows 側 products/ が空になり PDF を確認できなかった。
+    # ⇒ push 直前にアーカイブすることで:
+    #   - Windows 側 products/ には常に「最新 roundtrip の PDF」が可視
+    #   - __archives/ には時系列で蓄積
+    if [[ -z "$DRY_RUN" ]]; then
+        archive_old_gdrive_pdfs
+    fi
+
     rclone copy "$OUTPUT_DIR" "$GDRIVE_DEST" \
         --include "*.docx" \
         --include "*.xlsx" \
@@ -188,6 +201,38 @@ phase_push() {
     else
         log_ok "Push 完了"
     fi
+    echo ""
+}
+
+# ============================================================
+# phase_push が呼び出す pre-push cleanup: 旧 PDF を __archives/ へ退避
+# ============================================================
+archive_old_gdrive_pdfs() {
+    local archive_ts
+    archive_ts="$(date '+%Y%m%d_%H%M%S')"
+    local gdrive_archive="$GDRIVE_DEST/products/__archives"
+
+    local pdf_list
+    pdf_list=$(rclone_with_retry 60 rclone lsf \
+        "$GDRIVE_DEST/products" \
+        --include "*.pdf" --max-depth 1 --files-only 2>/dev/null || true)
+
+    if [[ -z "$pdf_list" ]]; then
+        return 0  # 旧 PDF 無し — cleanup 不要
+    fi
+
+    log_info "旧 PDF を __archives/ に退避..."
+    rclone mkdir "$gdrive_archive" 2>/dev/null || true
+
+    for pdf_name in $pdf_list; do
+        local base="${pdf_name%.pdf}"
+        local archived_name="${base}_${archive_ts}.pdf"
+        timeout 30 rclone moveto \
+            "$GDRIVE_DEST/products/$pdf_name" \
+            "$gdrive_archive/$archived_name" \
+            -v 2>&1 | tail -1 || true
+        log_info "  旧 $pdf_name → __archives/$archived_name"
+    done
     echo ""
 }
 
@@ -283,26 +328,10 @@ phase_wait_and_pull() {
     done
     echo ""
 
-    # Google Drive上のPDFを__archives/にタイムスタンプ付きで移動
-    local archive_ts
-    archive_ts="$(date '+%Y%m%d_%H%M%S')"
-    local gdrive_archive="$GDRIVE_DEST/products/__archives"
-
-    log_info "Google Drive上のPDFを __archives/ に退避..."
-    rclone mkdir "$gdrive_archive" 2>/dev/null || true
-
-    local pdf_list
-    # M14-05: 退避前の一覧取得も 60s + retry に緩和。
-    pdf_list=$(rclone_with_retry 60 rclone lsf "$GDRIVE_DEST/products" --include "*.pdf" --max-depth 1 --files-only 2>/dev/null || true)
-    for pdf_name in $pdf_list; do
-        local base="${pdf_name%.pdf}"
-        local archived_name="${base}_${archive_ts}.pdf"
-        timeout 30 rclone moveto \
-            "$GDRIVE_DEST/products/$pdf_name" \
-            "$gdrive_archive/$archived_name" \
-            -v 2>&1 || true
-        log_info "  $pdf_name → __archives/$archived_name"
-    done
+    # N15-01: PDF を Google Drive 側 products/ に残すことで Windows でも可視化。
+    # 次回 Phase 3 冒頭の archive_old_gdrive_pdfs() で __archives/ へ退避される。
+    log_info "Google Drive products/ は保持（Windows での閲覧用）"
+    log_info "次回 Phase 3 冒頭で __archives/ に自動退避します"
     echo ""
 }
 

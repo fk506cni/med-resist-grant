@@ -15,6 +15,7 @@ Usage:
 
 import argparse
 import io
+import math
 import re
 import shutil
 import sys
@@ -137,7 +138,14 @@ def _reinject_extlst(xlsx_path, extlst_xml, extra_ns_attrs,
 # ============================================================================
 
 def _yearly_total(year_data, indirect_rate):
-    """Calculate total cost (direct + indirect) for a year, in 千円."""
+    """Calculate total cost (direct + indirect) for a year, in 千円.
+
+    M17-02: 旧実装 `int(direct * (1 + indirect_rate))` は浮動小数点演算結果を
+    切り捨てるため、direct=38385, rate=0.3 で 49900 を返してしまい、
+    fill_forms.py 側の `direct + math.ceil(direct * rate) = 49901` と 1 千円
+    ずれた（様式6 Q21 vs 様式1-1 ⑦・様式2-1 Y3）。fill_forms.py と同じ
+    `math.ceil` 切上げ式に揃え、様式間の整合性を確保する。
+    """
     direct = (
         year_data.get("equipment", 0)
         + year_data.get("consumables", 0)
@@ -145,7 +153,8 @@ def _yearly_total(year_data, indirect_rate):
         + year_data.get("personnel", 0)
         + year_data.get("other", 0)
     )
-    return int(direct * (1 + indirect_rate))
+    indirect = math.ceil(direct * indirect_rate)
+    return direct + indirect
 
 
 # ============================================================================

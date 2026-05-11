@@ -1,0 +1,39 @@
+%%{init: {'theme':'base','themeVariables':{'fontSize':'13px'},'flowchart':{'htmlLabels':false,'curve':'basis'}}}%%
+flowchart TB
+    G["最終目標<br/>サイバー攻撃影響シミュレーションシステムの構築・検証<br/>（プロトタイプ構築 / 実データ検証 2医療圏以上 / 論文3編以上）"]
+
+    T1["要素課題1<br/>医療需給動態モデル構築"]
+    T2["要素課題2<br/>インフラ連関影響モデル"]
+    T34["要素課題3・4<br/>シナリオ定式化・<br/>統合シミュレーション"]
+
+    I1["実施項目1<br/>医療需給動態モデルの構築<br/>担当: 福山, 森教授"]
+    I2["実施項目2<br/>インフラ連関影響モデルの開発<br/>担当: 楠田"]
+    I3["実施項目3<br/>シナリオ設計・統合シミュレーション<br/>担当: 福山, 楠田"]
+    I4["実施項目4<br/>プロジェクトの総合的推進<br/>全メンバー（黒田: 研究設計）"]
+
+    D["データソース<br/>レセプト(NDB) / DPC / 救急搬送 / 地域医療資源 /<br/>インフラ稼働情報 / 攻撃事例データ"]
+
+    T1 --> G
+    T2 --> G
+    T34 --> G
+    I1 --> T1
+    I2 --> T2
+    I3 --> T34
+    D --> I1
+    D --> I2
+    D --> I3
+    I4 -. 統合・管理 .-> I1
+    I4 -. 統合・管理 .-> I2
+    I4 -. 統合・管理 .-> I3
+
+    classDef goal fill:#fff4e6,stroke:#d6a152,stroke-width:2px
+    classDef task fill:#e6f0ff,stroke:#5a7db3
+    classDef impl fill:#e8f5e9,stroke:#5ea35e
+    classDef mgmt fill:#f3e8f7,stroke:#8b5ca1
+    classDef data fill:#f5f5f5,stroke:#888,stroke-dasharray:3 3
+
+    class G goal
+    class T1,T2,T34 task
+    class I1,I2,I3 impl
+    class I4 mgmt
+    class D data

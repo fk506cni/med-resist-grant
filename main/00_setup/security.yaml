@@ -111,8 +111,8 @@ researchers:
 
     nationality: "日本"
 
-  # === 研究分担者: ○○ ○○（医療DX教育研究センター 教授、人選未定） ===
-  "○○ ○○":
+  # === 研究分担者: 森 由希子（医療DX教育研究センター 教授、2026年就任予定） ===
+  "森 由希子":
     education_history:
       - year_month: "○○年3月"
         description: "○○大学○○学部 卒業"

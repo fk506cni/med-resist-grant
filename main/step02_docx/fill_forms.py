@@ -299,8 +299,12 @@ def fill_1_1(tbl, cfg, res, ofund):
              f"{admin.get('department', '')}・"
              f"{admin.get('position', '')}")
 
+    # M17-01: admin_contact.postal を展開（「〒」プレフィックスは postal 側で持つ）
+    admin_postal = admin.get("postal", "").replace("〒", "").strip()
     set_cell(tbl.cell(14, 3),
-             f"〒\nTEL: {admin.get('tel', '')}\nE-mail: {admin.get('email', '')}")
+             f"〒{admin_postal}\n"
+             f"TEL: {admin.get('tel', '')}\n"
+             f"E-mail: {admin.get('email', '')}")
 
     # ⑪ 研究者リスト (rows 17–)
     # Dynamically add rows if template doesn't have enough for all co-investigators
@@ -615,9 +619,14 @@ def fill_3_2(tbl, cfg, res, ofund):
     grand = sum(totals)
     set_cell(tbl.cell(1, 5), f"{_amt(yr1)}\n({_amt(grand)})")
 
+    # M17-08: 「10, 15, 15」のカンマ詰込ではなく、分担者ごとに改行 + 名前付きで
+    # 「黒田 知宏 10%」「森 由希子 15%」「楠田 佳緒 15%」の 3 行構成にする。
     co_invs = res.get("co_investigators", [])
-    efforts = [str(co.get("effort_percent", "")) for co in co_invs]
-    set_cell(tbl.cell(1, 6), ", ".join(efforts) if efforts else "")
+    efforts = [
+        f"{co.get('name_ja', '')} {co.get('effort_percent', '')}%"
+        for co in co_invs
+    ]
+    set_cell(tbl.cell(1, 6), "\n".join(efforts) if efforts else "")
 
     # Collect all entries across all co-investigators
     all_entries = []
@@ -770,11 +779,19 @@ def fill_consent_forms(doc, cfg, res):
     # "R10" / "Ｒ10" / "10" / "令和10年度" → "10"
     period_end_year = "".join(c for c in period_end if c.isdigit()) or "10"
 
-    pi_display = (
-        f"{pi.get('affiliation', '')}\u3000{pi.get('name_ja', '')}"
-    ).strip()
+    # N17-02: 「京都大学 楠田 佳緒」のような「機関＋氏名」ペアが Word の
+    # 行末折返しで分断されないよう、ペア内の空白を NBSP（U+00A0）に置換する。
+    # 氏名内部の姓・名間半角空白（例「楠田 佳緒」）も NBSP に置換し、ペア
+    # 全体を 1 単語扱いで折り返し不可とする。ペア間の区切りは読点「、」を維持。
+    NBSP = "\u00a0"
+    def _nb_join(affil, name):
+        # name_ja 内部の半角空白（U+0020）と全角空白（U+3000）を NBSP に置換
+        name_nb = name.replace(" ", NBSP).replace("\u3000", NBSP) if name else ""
+        return f"{affil}{NBSP}{name_nb}".strip()
+
+    pi_display = _nb_join(pi.get("affiliation", ""), pi.get("name_ja", ""))
     co_display = "、".join(
-        f"{co.get('affiliation', '')}\u3000{co.get('name_ja', '')}".strip()
+        _nb_join(co.get("affiliation", ""), co.get("name_ja", ""))
         for co in co_list
     )
     # N16-07: signer block \u306e placeholder \u69cb\u9020\u306f 3 \u6bb5\uff08\u6a5f\u95a2\u540d / \u8077\u540d / \u6c0f\u540d\uff09\u3002

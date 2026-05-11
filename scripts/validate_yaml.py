@@ -74,14 +74,20 @@ REQUIRED_FIELDS = {
 # 様式5 deletion 条件 ("大学等" / "公的研究機関") との整合を強制する
 INST_TYPE_ENUM = ("大学等", "公的研究機関", "民間企業", "その他")
 
-# M15-04: placeholder マーカー
-# 本番 YAML にこれらが残っていれば実データ未確定として ERROR 扱い
-PLACEHOLDER_PATTERNS = ("○○", "△△", "□□", "XX", "ＸＸ")
+# M15-04 / C17-01・C17-02: placeholder マーカー
+# 本番 YAML にこれらが残っていれば実データ未確定として ERROR 扱い。
+# 「要確認」「○○○○」は第17回レビュー（C17-01・C17-02）で実際に提出 PDF へ
+# 印字されていたため追加。
+PLACEHOLDER_PATTERNS = ("○○", "△△", "□□", "XX", "ＸＸ", "要確認", "○○○○")
 PLACEHOLDER_TARGET_FIELDS = (
     # researchers.yaml の対象フィールド（ドット区切り、各 co も同等に検査）
     "name_ja", "name_en", "affiliation", "department", "position",
     "researcher_id", "furigana",
 )
+
+# N17-05: 様式1-1 ②課題名（日）の文字数制限（30 字以内）。
+# 軽微な追記で超過するリスクを早期検出する。
+TITLE_JA_MAX_LEN = 30
 
 
 def load_yamls():
@@ -232,7 +238,8 @@ def _has_placeholder(value):
 
 
 def check_placeholder(researchers_data):
-    """M15-04: researchers.yaml に placeholder マーカーが残っていないか検査。"""
+    """M15-04 / C17-01・C17-02: researchers.yaml に placeholder マーカーが
+    残っていないか検査。contact.email / funding_history も対象に含める。"""
     errors = []
 
     def _check_person(person, label):
@@ -241,8 +248,26 @@ def check_placeholder(researchers_data):
             if _has_placeholder(v):
                 errors.append(
                     f"researchers.yaml: {label}.{field}='{v}' は placeholder です "
-                    f"(○○/△△/□□/XX 等が含まれる) — 実データに置換してください"
+                    f"(○○/△△/□□/XX/要確認 等が含まれる) — 実データに置換してください"
                 )
+        # C17-01: contact.email も検査
+        contact = person.get("contact") or {}
+        if _has_placeholder(contact.get("email")):
+            errors.append(
+                f"researchers.yaml: {label}.contact.email='{contact.get('email')}' "
+                f"は placeholder です — 実データに置換してください"
+            )
+        # C17-02: funding_history の各 dict 値も検査
+        for fi, fund in enumerate(person.get("funding_history") or []):
+            if not isinstance(fund, dict):
+                continue
+            for fkey in ("program", "title", "period", "amount"):
+                fv = fund.get(fkey)
+                if _has_placeholder(fv):
+                    errors.append(
+                        f"researchers.yaml: {label}.funding_history[{fi}].{fkey}='{fv}' "
+                        f"は placeholder です — 実データに置換してください"
+                    )
 
     pi = researchers_data.get("pi", {}) or {}
     if pi:
@@ -251,6 +276,28 @@ def check_placeholder(researchers_data):
     for idx, ci in enumerate(researchers_data.get("co_investigators", []) or []):
         _check_person(ci, f"co_investigators[{idx}]")
 
+    return errors
+
+
+def check_title_length(config_data):
+    """N17-05: 様式1-1 ②課題名（日）の文字数制限を検査。
+
+    超過時のみ ERROR を返す。残り 1〜2 字の「ぎりぎり」は標準出力に WARN を
+    出力するが errors リストには加えず、build パイプラインを停止させない。
+    """
+    errors = []
+    title = (config_data.get("project") or {}).get("title_ja", "") or ""
+    n = len(title)
+    if n > TITLE_JA_MAX_LEN:
+        errors.append(
+            f"config.yaml: project.title_ja は {n} 文字 (制限 {TITLE_JA_MAX_LEN} 字以内)"
+            f" — 短縮してください: '{title}'"
+        )
+    elif n >= TITLE_JA_MAX_LEN - 1:
+        print(
+            f"  ⚠ WARN: project.title_ja は {n} 文字で制限 {TITLE_JA_MAX_LEN} 字"
+            f" に対し残り {TITLE_JA_MAX_LEN - n} 字。軽微な追記で超過するため要注意"
+        )
     return errors
 
 
@@ -311,6 +358,7 @@ def main():
     if "config.yaml" in data:
         errors.extend(check_budget_consistency(data["config.yaml"]))
         errors.extend(check_inst_type(data["config.yaml"]))
+        errors.extend(check_title_length(data["config.yaml"]))
 
     placeholder_findings = []
     if "researchers.yaml" in data:

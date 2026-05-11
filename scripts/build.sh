@@ -331,6 +331,32 @@ do_clean() {
     echo "  $count ファイルを削除しました"
 }
 
+# N15-02: 'all' ビルドの先頭で step02/step03 の出力を自動クリーン。
+# これにより:
+#   (a) DATA_DIR/SETUP_DIR 切替時の旧 build 成果物の混入を防ぐ
+#       （例: dummy build 後の production build で、rename 前の
+#            betten_XX_○○.docx が step02/output に残る → roundtrip が
+#            Windows に stale PDF を転送する事故を防止）
+#   (b) researchers.yaml の人員変更で不要になった betten_XX_旧名.docx を掃除
+# 個別ステップ（forms 単体等）の呼び出しでは clean しない（incremental
+# ビルドを壊さないため）。
+prebuild_clean_outputs() {
+    local count=0
+    for dir in main/step02_docx/output main/step03_excel/output; do
+        [[ -d "$dir" ]] || continue
+        for f in "$dir"/*.docx "$dir"/*.xlsx; do
+            if [[ -f "$f" ]]; then
+                rm -f "$f"
+                count=$((count + 1))
+            fi
+        done
+    done
+    if [[ "$count" -gt 0 ]]; then
+        echo "[prebuild clean] step02/step03 出力から $count ファイルを削除しました"
+        echo ""
+    fi
+}
+
 do_check() {
     echo "=== check: 出力ファイルチェック ==="
     echo ""
@@ -482,6 +508,10 @@ ALL_STEPS=(validate forms narrative inject security excel)
 
 for target in "${TARGETS[@]}"; do
     if [[ "$target" == "all" ]]; then
+        # N15-02: 'all' の実行前に step02/step03 出力を掃除し、前回ビルドの
+        # ステイル成果物（DATA_DIR/SETUP_DIR 切替時や研究者 rename 時に残る
+        # 古い docx/xlsx）が含まれないようにする。
+        prebuild_clean_outputs
         for step in "${ALL_STEPS[@]}"; do
             run_step "$step" || RESULTS[$step]="FAIL"
             echo ""
