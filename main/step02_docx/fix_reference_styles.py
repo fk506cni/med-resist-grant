@@ -107,19 +107,28 @@ def main():
     print("  Heading 1: ＭＳ ゴシック 12pt 太字")
 
     # --- Heading 2: MSゴシック 10.5pt 太字 ---
+    # 段落前後の余白を付与し、本文段落とサブセクション見出しの間に
+    # 視覚的な区切りを作る（before=12pt, after=2pt）。様式1-2 の 15p
+    # 制約を踏まえ控えめな値に留める。
     style = doc.styles["Heading 2"]
     set_style_font(style, "MS Gothic", "ＭＳ ゴシック", 10.5, bold=True)
     font = style.font
     font.color.rgb = None
-    print("  Heading 2: ＭＳ ゴシック 10.5pt 太字")
+    style.paragraph_format.space_before = Pt(12)
+    style.paragraph_format.space_after = Pt(2)
+    print("  Heading 2: ＭＳ ゴシック 10.5pt 太字, 段落前12pt/後2pt")
 
-    # --- Heading 3: MSゴシック 10.5pt ---
+    # --- Heading 3: MSゴシック 10.5pt 太字 ---
+    # Heading 2 とのコントラストを確保するため太字化。サブサブセクションの
+    # 視認性を上げる。段落前後の余白も付与（before=8pt, after=2pt）。
     try:
         style = doc.styles["Heading 3"]
-        set_style_font(style, "MS Gothic", "ＭＳ ゴシック", 10.5)
+        set_style_font(style, "MS Gothic", "ＭＳ ゴシック", 10.5, bold=True)
         font = style.font
         font.color.rgb = None
-        print("  Heading 3: ＭＳ ゴシック 10.5pt")
+        style.paragraph_format.space_before = Pt(8)
+        style.paragraph_format.space_after = Pt(2)
+        print("  Heading 3: ＭＳ ゴシック 10.5pt 太字, 段落前8pt/後2pt")
     except KeyError:
         pass
 

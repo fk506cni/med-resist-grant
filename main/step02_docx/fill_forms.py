@@ -102,6 +102,25 @@ def circle_choice(cell, target):
     return False
 
 
+def _ensure_table_rows(tbl, target_count, template_row_idx=None):
+    """テーブルに target_count 行以上が存在することを保証する。
+
+    不足分は template_row_idx を deep copy して追加する。set_cell は段落を
+    完全置換するため、複製先の文字列が残ることはない。罫線・セル幅・段落
+    プロパティが保持されることで、Word 上の見た目が崩れない。
+
+    Args:
+        tbl: docx.table.Table
+        target_count: 必要な行数
+        template_row_idx: コピー元の行インデックス。None なら最終行を使用
+    """
+    while len(tbl.rows) < target_count:
+        src_idx = template_row_idx if template_row_idx is not None else len(tbl.rows) - 1
+        src_tr = tbl.rows[src_idx]._tr
+        new_tr = copy.deepcopy(src_tr)
+        tbl._tbl.append(new_tr)
+
+
 # ============================================================================
 # Format helpers
 # ============================================================================
@@ -549,11 +568,10 @@ def fill_3_1(tbl, cfg, res, ofund):
     if not entries:
         set_cell(tbl.cell(2, 2), "無し")
     else:
+        # entries 数に応じてテーブル行を動的拡張（最初のデータ行 2 をテンプレートに）
+        _ensure_table_rows(tbl, target_count=2 + len(entries), template_row_idx=2)
         for idx, ent in enumerate(entries):
             row = 2 + idx
-            if row >= len(tbl.rows):
-                warnings.warn("様式3-1: not enough rows for all entries")
-                break
             set_cell(tbl.cell(row, 0), str(idx + 2))
             set_cell(tbl.cell(row, 1), ent.get("status", ""))
             agency = ent.get("agency", "") if not ent.get("confidential") else ""
@@ -611,11 +629,10 @@ def fill_3_2(tbl, cfg, res, ofund):
     if not all_entries:
         set_cell(tbl.cell(2, 2), "無し")
     else:
+        # entries 数に応じてテーブル行を動的拡張（最初のデータ行 2 をテンプレートに）
+        _ensure_table_rows(tbl, target_count=2 + len(all_entries), template_row_idx=2)
         for idx, (rname, ent) in enumerate(all_entries):
             row = 2 + idx
-            if row >= len(tbl.rows):
-                warnings.warn("様式3-2: not enough rows for all entries")
-                break
             set_cell(tbl.cell(row, 0), str(idx + 2))
             set_cell(tbl.cell(row, 1), ent.get("status", ""))
             agency = ent.get("agency", "") if not ent.get("confidential") else ""

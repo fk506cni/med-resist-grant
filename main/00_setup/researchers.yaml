@@ -133,8 +133,8 @@ pi:
 
   # --- エフォート・担当業務 ---
   # ※ effort_fk.pdf 確認: 採択済 20% (若手10+指定難病DB 5+循環器糖尿病LLM 5) +
-  #   本研究 40% = 60% で残り 40% は教育・診療・社会活動相当
-  effort_percent: 40
+  #   本研究 20% = 40% で残り 60% は教育・診療・社会活動相当
+  effort_percent: 20
   tasks: "研究統括、医療ビッグデータ解析・影響評価モデル開発"
 
 # ---------------------------------------------------------------------------
@@ -206,44 +206,59 @@ co_investigators:
     effort_percent: 10
     tasks: "研究設計、医療情報システムに関する助言"
 
-  # --- 森 由希子 教授（医療DX教育研究センター、2026年就任予定） ---
-  # 出典: https://medinfo.kuhp.kyoto-u.ac.jp/members/ に准教授として掲載。
-  #       医療DX教育研究センター教授への就任は当方情報により未公開段階の確定事項。
-  #       詳細プロフィール（学位・生年等）は本人に要確認。
+  # --- 森 由希子 教授（医療DX教育研究センター、2026年5月就任） ---
+  # 出典: refs/submission_merged_mori.pdf（森先生提供の様式4-2）,
+  #       refs/efforts_mori.pdf（e-Rad エフォート一覧, 2026年度時点）
   - name_ja: "森 由希子"
     name_en: "Yukiko MORI"
     furigana: "もり ゆきこ"
     nationality: "日本"
 
-    birth_date: "要確認"
-    age: 0  # 本人に要確認
+    # 出典: submission_merged_mori.pdf 様式4-2
+    birth_date: "1972年9月2日"
+    age: 53  # 2026-05応募時点
 
-    researcher_id: "要確認"  # e-Rad 研究者番号 — 本人に確認のこと
+    # 出典: efforts_mori.pdf
+    researcher_id: "80456863"
 
     affiliation: "京都大学"
     department: "医療DX教育研究センター"
     position: "教授"
     institution: "京都大学"
 
+    # 出典: submission_merged_mori.pdf 様式4-2
     education:
-      school: "要確認"
-      graduation_year: "要確認"
-      degree: "要確認"
+      school: "京都大学大学院 医学研究科 博士課程"
+      graduation_year: "2007年3月修了"
+      degree: "博士（医学）"
 
     specialty: "医療情報学、医療ビッグデータ解析"
 
+    # 出典: submission_merged_mori.pdf 様式4-2 主な経歴
     career_history:
-      - year_month: "要確認"
+      - year_month: "2024年7月"
         description: "京都大学医学部附属病院 医療情報企画部 准教授"
-      - year_month: "2026年"
-        description: "京都大学 医療DX教育研究センター 教授（現職、就任予定）"
+      - year_month: "2026年5月"
+        description: "京都大学大学院医学研究科附属 医療DX教育研究センター 教授（現職）"
 
+    # 出典: efforts_mori.pdf（e-Rad 採択済課題 5件 + 応募中 1件のうち、研究資金実績として
+    # 本研究関連性が高い代表 1 件・分担 2 件を抜粋）
     funding_history:
-      - program: "要確認"
-        title: "要確認"
-        role: "要確認"
-        period: "要確認"
-        amount: "要確認"
+      - program: "厚生労働省 難治性疾患政策研究事業（24FC0401）"
+        title: "指定難病患者データベース・小児慢性特定疾病児童等データベースと各種公的データベースの連結手法および連結データ利活用法の検討"
+        role: "代表"
+        period: "令和6年度〜令和8年度"
+        amount: "0千円（代表）"
+      - program: "JST CREST「基礎理論とシステム基盤技術の融合によるSociety 5.0のための基盤ソフトウェアの創出」領域"
+        title: "安全性と有用性の保証のあるヘルスケア匿名コホート基盤"
+        role: "分担"
+        period: "令和3年度〜令和8年度"
+        amount: "0千円（分担）"
+      - program: "文部科学省 基盤研究（C）"
+        title: "NDBを基軸とした各種大規模医療データの連結解析に必要な知見集積のための開発研究"
+        role: "分担"
+        period: "令和7年度〜令和9年度"
+        amount: "100千円（令和8年度配分）"
 
     awards: []
 
@@ -271,52 +286,99 @@ co_investigators:
     tasks: "医療ビッグデータ解析"
 
   # --- 楠田 佳緒 特定講師（医療DX教育研究センター） ---
-  # 出典: https://medinfo.kuhp.kyoto-u.ac.jp/members/ に特定講師として掲載
-  # 詳細プロフィールは本人に要確認。
+  # 出典: refs/履歴書_楠田佳緒.pdf (2024-11-19 時点), refs/研究業績目録_楠田佳緒.pdf
+  # 注: CV 時点では東京医療保健大学 助教。京都大学への異動は CV 後（推定 2025〜2026）。
   - name_ja: "楠田 佳緒"
     name_en: "Kaori KUSUDA"
     furigana: "くすだ かおり"
     nationality: "日本"
 
-    birth_date: "要確認"
-    age: 0  # 本人に要確認
+    # 出典: refs/履歴書_楠田佳緒.pdf
+    birth_date: "1987年5月26日"
+    age: 38  # 2026-05応募時点
 
-    researcher_id: "要確認"  # e-Rad 研究者番号 — 本人に確認のこと
+    # 出典: refs/effort_kusuda.pdf (e-Rad エフォート一覧, 2026年度時点)
+    researcher_id: "00780131"
 
     affiliation: "京都大学"
     department: "医療DX教育研究センター"
     position: "特定講師"
     institution: "京都大学"
 
+    # 出典: refs/履歴書_楠田佳緒.pdf
     education:
-      school: "要確認"
-      graduation_year: "要確認"
-      degree: "要確認"
+      school: "お茶の水女子大学 大学院人間文化創成科学研究科 博士後期課程"
+      graduation_year: "2016年3月修了"
+      degree: "博士（理学）"
 
-    specialty: "社会インフラ解析、シミュレーション工学、ネットワーク科学"
+    # 出典: refs/研究業績目録_楠田佳緒.pdf 業績テーマより
+    specialty: "医療情報学、医療機器IoT管理（RFID手術器械管理）、スマート治療室（SCOT）、看護理工学、医工学"
 
+    # 出典: refs/履歴書_楠田佳緒.pdf 学歴・職歴
     career_history:
-      - year_month: "要確認"
-        description: "要確認"
-      - year_month: "要確認"
-        description: "京都大学 医療DX教育研究センター 特定講師（現職）"
+      - year_month: "2011年3月"
+        description: "東京医療保健大学 医療保健学部 医療情報学科 卒業（学士・医療情報学）"
+      - year_month: "2013年3月"
+        description: "お茶の水女子大学 大学院人間文化創成科学研究科 博士前期課程 修了（修士・理学）"
+      - year_month: "2016年3月"
+        description: "お茶の水女子大学 大学院人間文化創成科学研究科 博士後期課程 修了（博士・理学）"
+      - year_month: "2016年4月"
+        description: "群馬工業高等専門学校 電子情報学科 助教（〜2017年3月）"
+      - year_month: "2017年4月"
+        description: "東京女子医科大学 先端生命医科学研究所 先端工学外科学分野 特任助教（〜2022年3月）"
+      - year_month: "2022年4月"
+        description: "東京医療保健大学 医療保健学部 医療情報学科 助教"
+      - year_month: "現在"
+        description: "京都大学 医療DX教育研究センター 特定講師"
 
+    # 出典: refs/effort_kusuda.pdf
     funding_history:
-      - program: "要確認"
-        title: "要確認"
-        role: "要確認"
-        period: "要確認"
-        amount: "要確認"
+      - program: "文部科学省 基盤研究（C）"
+        title: "手術室看護の臨床シミュレーションを目的としたVR学習支援システムの開発"
+        role: "代表"
+        period: "令和6年度〜令和8年度"
+        amount: "1,000千円（令和8年度配分）"
+      - program: "文部科学省 基盤研究（B）"
+        title: "数理モデルを導入した機械学習による脳腫瘍成長予測基盤の構築と予後予測応用"
+        role: "分担"
+        period: "令和8年度〜令和11年度"
+        amount: "600千円（令和8年度配分）"
+      - program: "厚生労働省 臨床研究等ICT基盤構築・人工知能実装研究事業（25AC0501）"
+        title: "地域における共通基盤・集中管理体制によるサイバーセキュリティの実証のための研究"
+        role: "分担"
+        period: "令和7年度〜令和8年度"
+        amount: "0千円（分担、みなし計上）"
 
-    awards: []
+    # 出典: refs/研究業績目録_楠田佳緒.pdf 【受賞】
+    awards:
+      - year_month: "2020年"
+        name: "日立賞、日本コンピュータ外科学会"
+      - year_month: "2018年"
+        name: "ISCAS-CARS Best Poster Award (Development of traceability system for surgical instruments in operation room)"
+      - year_month: "2014年10月"
+        name: "第2回看護理工学会 優秀演題賞（患者安全のためのガーゼの枚数確認システムの開発）"
+      - year_month: "2013年"
+        name: "お茶の水女子大学 大学院博士後期課程研究奨励賞"
 
+    # 出典: refs/研究業績目録_楠田佳緒.pdf 【論文】より本研究関連性の高いものを抜粋
+    # 本研究との接続: 医療情報学・医療機器ネットワーク管理の知見が、医療機関内の
+    # IT基盤・医療機器の相互運用性および脆弱性評価に応用可能
     publications:
-      - authors: "要確認"
-        title: "要確認"
-        journal: "要確認"
+      - authors: "Kusuda K, Yamashita K, Morishita E, Ishibashi N, Shiraishi Y, Yamaguchi H"
+        title: "Comparison of Reading Times of RFID-Tagged and Barcode-Engraved Surgical Instruments"
+        journal: "Journal of Surgical Research"
         year: 2024
+      - authors: "Kusuda K, Yamashita K, Tanaka S, Tanaka K, Ohta Y"
+        title: "Development of a Surgical Sponge Counting System Using Radiographic Images"
+        journal: "Surgical Innovation"
+        year: 2020
+      - authors: "Kusuda K, Yamashita K, Ohnishi A, Tanaka K, Komino M, Honda H, Tanaka S, Okubo T, Tripette J, Ohta Y"
+        title: "Management of surgical instruments with radio frequency identification tags: A 27-month in-hospital trial"
+        journal: "International Journal of Health Care Quality Assurance"
+        year: 2016
 
-    patents: []
+    # 出典: refs/研究業績目録_楠田佳緒.pdf 【特許】
+    patents: []  # なし
 
     researchmap_id: "要確認"
 
@@ -325,8 +387,11 @@ co_investigators:
       tel: "075-751-3111"  # 京大病院代表（直通は本人確認）
       email: "要確認"
 
-    effort_percent: 25
-    tasks: "インフラ連関分析・シミュレーション技術開発"
+    # 本研究へのエフォート（refs/effort_kusuda.pdf の現状値: 採択45% + 応募中(本研究) 5% で
+    # 申請されていたが、本プロジェクトでは 15% を確保する方針。本人側で e-Rad の
+    # 修正申請が必要）
+    effort_percent: 15
+    tasks: "医療機関内ネットワーク・医療機器IoTの相互運用性分析、インフラ連関影響モデル開発、シミュレーション技術開発"
 
 # ---------------------------------------------------------------------------
 # admin_contact: 経理事務担当者

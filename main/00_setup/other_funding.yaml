@@ -83,36 +83,176 @@ pi_funding:
 # ---------------------------------------------------------------------------
 co_investigator_funding:
   - researcher_name: "黒田 知宏"
-    entries:
-      - status: "受入中"
-        program_name: "○○"
-        period: "○○〜○○"
-        agency: "○○"
-        project_title: "○○に関する研究"
-        role: "○○"
-        budget: 0
-        total_budget: 0
-        effort_percent: 0
-        difference: >-
-          ○○では○○に焦点を当てているのに対し、本課題では研究設計の
-          助言を担当しており、研究内容が異なる。
-        confidential: false
+    entries: []  # 要確認（共同研究者本人へ要照会）
+    # 注: 様式3-2 のテーブルは最大4 entries 制約。楠田 4 entries 全件表示のため
+    #     黒田の placeholder は一時的に空にしている。本人から情報を入手次第、
+    #     entries を追加し、楠田の最も関連性が薄い entry（例: 基盤B 脳腫瘍）と
+    #     入れ替える、または fill_forms.py 側でテーブル拡張を検討する。
 
   - researcher_name: "森 由希子"
-    entries: []  # 要確認（共同研究者本人へ要照会）
-
-  - researcher_name: "楠田 佳緒"
+    # 出典: refs/efforts_mori.pdf（e-Rad エフォート一覧、研究者番号 80456863、2026年度）
     entries:
+      # 1. 厚労省 難治性疾患政策研究事業（24FC0401）代表、15%（最大エフォート）
       - status: "受入中"
-        program_name: "○○"
-        period: "○○〜○○"
-        agency: "○○"
-        project_title: "○○に関する研究"
-        role: "○○"
+        program_name: "難治性疾患政策研究事業（24FC0401）"
+        period: "R6〜R8"
+        agency: "厚生労働省"
+        project_title: "指定難病患者データベース・小児慢性特定疾病児童等データベースと各種公的データベースの連結手法および連結データ利活用法の検討"
+        role: "代表"
         budget: 0
         total_budget: 0
-        effort_percent: 0
+        effort_percent: 15
         difference: >-
-          ○○では○○を対象としているのに対し、本課題では医療インフラの
-          連関分析・シミュレーション技術開発を担当しており、対象領域が異なる。
+          本課題は指定難病DB・小慢DBと各種公的DBの連結手法・利活用法の検討が
+          目的であり、本応募研究のサイバー攻撃による地域医療提供体制のシミュ
+          レーション技術開発とは対象データ・目的が異なる。
+        confidential: false
+
+      # 2. JST CREST「ヘルスケア匿名コホート基盤」分担、10%
+      - status: "受入中"
+        program_name: "JST CREST「基礎理論とシステム基盤技術の融合によるSociety 5.0のための基盤ソフトウェアの創出」領域"
+        period: "R3〜R8"
+        agency: "国立研究開発法人科学技術振興機構（JST）"
+        project_title: "安全性と有用性の保証のあるヘルスケア匿名コホート基盤"
+        role: "分担"
+        budget: 0
+        total_budget: 0
+        effort_percent: 10
+        difference: >-
+          本課題は医療データの匿名化・コホート構築の基盤ソフトウェア開発が
+          目的であり、本応募研究のサイバー攻撃影響シミュレーションとは対象・
+          手法が異なる。
+        confidential: false
+
+      # 3. 基盤研究(C) NDB連結解析（分担、5%）
+      - status: "受入中"
+        program_name: "基盤研究（Ｃ）"
+        period: "R7〜R9"
+        agency: "文部科学省"
+        project_title: "NDBを基軸とした各種大規模医療データの連結解析に必要な知見集積のための開発研究"
+        role: "分担"
+        budget: 100
+        total_budget: 100
+        effort_percent: 5
+        difference: >-
+          本課題はNDBと他医療データの連結解析の知見集積が目的であり、
+          本応募研究のインフラサイバー攻撃影響シミュレーション技術開発とは
+          対象・手法が異なる。
+        confidential: false
+
+      # 4. 厚労省 がん政策研究事業 公的データ連結・がん登録（26EA0101）分担、5%
+      - status: "受入中"
+        program_name: "がん政策研究事業（26EA0101）"
+        period: "R8〜R10"
+        agency: "厚生労働省"
+        project_title: "公的データ連結・国際比較を見据えたがん登録を中核とした統計利活用高度化に関する研究"
+        role: "分担"
+        budget: 650
+        total_budget: 650
+        effort_percent: 5
+        difference: >-
+          本課題はがん登録を中核とした公的データ連結・国際比較の統計利活用
+          高度化が目的であり、本応募研究のサイバー攻撃影響シミュレーションとは
+          対象・手法が異なる。
+        confidential: false
+
+      # 5. 厚労省 がんゲノム医療（26EA0201）分担、5%
+      - status: "受入中"
+        program_name: "がん政策研究事業（26EA0201）"
+        period: "R8〜R10"
+        agency: "厚生労働省"
+        project_title: "がんゲノム医療の拡大と最適化及びその持続可能な評価指標確立のための研究"
+        role: "分担"
+        budget: 0
+        total_budget: 0
+        effort_percent: 5
+        difference: >-
+          本課題はがんゲノム医療の評価指標確立が目的であり、本応募研究の
+          地域医療提供体制サイバー攻撃影響シミュレーションとは対象が異なる。
+        confidential: false
+
+      # 6. AMED 慢性痛み（応募中、分担、5%）
+      - status: "応募中"
+        program_name: "慢性の痛み解明研究事業 令和8年度公募"
+        period: "R8〜R10"
+        agency: "国立研究開発法人日本医療研究開発機構（AMED）"
+        project_title: "抗がん剤誘発性末梢神経障害の早期発見に向けた客観評価法の研究開発"
+        role: "分担"
+        budget: 3000
+        total_budget: 3000
+        effort_percent: 5
+        difference: >-
+          本課題は抗がん剤誘発性末梢神経障害の客観評価法開発が目的であり、
+          本応募研究の医療提供体制サイバー攻撃影響シミュレーションとは
+          対象が異なる。
+        confidential: false
+
+  - researcher_name: "楠田 佳緒"
+    # 出典: refs/effort_kusuda.pdf（e-Rad エフォート一覧、研究者番号 00780131、2026年度）
+    # 様式3-2 のテーブル制約により最大4件まで記載。e-Rad 上の課題は本研究を除き 5 件
+    # （基盤研究(B) 脳腫瘍成長予測, 5%, 分担, R8-R11）が存在するが、本研究との
+    # 関連性が最も低いため割愛。必要に応じて様式の別途欄や面接時に補足。
+    entries:
+      # 1. 基盤研究(C) 手術室看護VR（代表、最大エフォート 30%）
+      - status: "受入中"
+        program_name: "基盤研究（Ｃ）"
+        period: "R6〜R8"
+        agency: "文部科学省"
+        project_title: "手術室看護の臨床シミュレーションを目的としたVR学習支援システムの開発"
+        role: "代表"
+        budget: 1000       # R8 配分予定額（千円）
+        total_budget: 1000 # 課題期間総額（千円、※ 単年度ベース、3か年積算は要確認）
+        effort_percent: 30
+        difference: >-
+          本課題は手術室看護のVR学習支援システム開発が目的であり、本応募研究の
+          基盤インフラサイバー攻撃シミュレーション技術開発とは対象・手法が
+          異なる。
+        confidential: false
+
+      # 2. 基盤研究(C) 統合失調症Web防災手帳（分担、5%）
+      - status: "受入中"
+        program_name: "基盤研究（Ｃ）"
+        period: "R8〜R10"
+        agency: "文部科学省"
+        project_title: "地域で暮らす統合失調症者の防災計画支援に向けたWeb防災手帳の研究"
+        role: "分担"
+        budget: 240
+        total_budget: 240
+        effort_percent: 5
+        difference: >-
+          本課題は統合失調症者個人を対象とした防災計画支援ツール開発であり、
+          本応募研究の地域医療提供体制のサイバー攻撃シミュレーションとは
+          対象・スケールが異なる。
+        confidential: false
+
+      # 3. 厚労省 サイバーセキュリティ実証研究（みなし計上、分担、5%）
+      - status: "受入中"
+        program_name: "臨床研究等ICT基盤構築・人工知能実装研究事業（25AC0501）"
+        period: "R7〜R8"
+        agency: "厚生労働省"
+        project_title: "地域における共通基盤・集中管理体制によるサイバーセキュリティの実証のための研究"
+        role: "分担"
+        budget: 0
+        total_budget: 0
+        effort_percent: 5
+        difference: >-
+          本課題は医療機関のサイバーセキュリティ運用基盤の実証が目的であり、
+          本応募研究のインフラ間連関を含む医療提供体制シミュレーション技術
+          開発とは対象範囲・手法が異なる。
+        confidential: false
+
+      # 4. 厚労省 医療機器サイバーセキュリティ（応募中、分担、5%）
+      - status: "応募中"
+        program_name: "臨床研究等ICT基盤構築・人工知能実装研究事業（26AC0301）"
+        period: "R8〜R10"
+        agency: "厚生労働省"
+        project_title: "医療機関における医療機器のサイバーセキュリティを確保するために必要な脆弱性情報等の提供体制構築に向けた研究"
+        role: "分担"
+        budget: 0
+        total_budget: 0
+        effort_percent: 5
+        difference: >-
+          本課題は医療機器の脆弱性情報提供体制の構築が目的であり、本応募研究の
+          地域医療提供体制のサイバー攻撃影響シミュレーション技術開発とは
+          対象範囲・手法が異なる。
         confidential: false
